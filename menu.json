@@ -19,7 +19,7 @@
     {
       "id": "solo-mix-5-2",
       "category": "SOLO",
-      "name": "Solo MIX (5 крыльев + 2 тендера)",
+      "name": "Solo MIX (5 крыльев + 2 тендерса)",
       "description": "1 дип-соус включён",
       "price": 2990,
       "flavors_max": 1,
@@ -70,7 +70,7 @@
     {
       "id": "duo-mix-12-4",
       "category": "DUO",
-      "name": "Duo MIX (12 крыльев + 4 тендера)",
+      "name": "Duo MIX (12 крыльев + 4 тендерса)",
       "description": "2 дипа включено",
       "price": 6690,
       "flavors_max": 2,
