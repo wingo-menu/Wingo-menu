@@ -6,8 +6,8 @@
   <title>WINGO CHICKEN — меню и заказ</title>
   <meta name="theme-color" content="#2E7D32" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=16" />
-  <script defer src="app.js?v=16"></script>
+  <link rel="stylesheet" href="styles.css?v=17" />
+  <script defer src="app.js?v=17"></script>
 </head>
 <body>
   <header class="app-header">
@@ -32,19 +32,19 @@
 
         <div class="opt-block" id="flavorBlock">
           <div class="opt-title">Вкус (выберите <span id="flavorMax">1</span>):</div>
-          <div class="options" id="flavorOptions"></div>
+          <div class="options options-chips" id="flavorOptions"></div>
           <div class="opt-hint" id="flavorHint"></div>
         </div>
 
         <div class="opt-block" id="garnishBlock">
           <div class="opt-title">Гарнир:</div>
-          <div class="options" id="garnishOptions"></div>
+          <div class="options options-chips" id="garnishOptions"></div>
           <div class="opt-hint">Фри или овощные палочки — на выбор (+0₸)</div>
         </div>
 
         <div class="opt-block" id="dipsBlock">
-          <div class="opt-title">Дип-соусы: входит <span id="dipsIncluded">0</span></div>
-          <div class="options" id="dipsIncludedList"></div>
+          <div class="opt-title">Дип-соусы</div>
+          <div class="opt-hint" id="dipsInfo"></div>
           <div class="opt-subrow">
             <label class="opt-inline">
               Доп. дипы:
@@ -76,6 +76,11 @@
       <div class="checkout__body">
         <div id="deliveryMode" class="delivery-mode"></div>
 
+        <div class="segment" id="modeSegment">
+          <button data-mode="delivery" class="seg active">Доставка</button>
+          <button data-mode="pickup" class="seg">Самовывоз</button>
+        </div>
+
         <label>Имя<input id="coName" placeholder="Как к вам обращаться?"></label>
         <label>Телефон<input id="coPhone" placeholder="+7..." inputmode="tel"></label>
 
@@ -104,12 +109,12 @@
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <!-- build v16 -->
+  <!-- build v17 -->
   <script>
-    // Регистрируем SW только если НЕТ ?nosw=1 (для обхода кэша при проверке)
+    // SW включается только если НЕТ ?nosw=1 — это помогает обойти кэш при проверке
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=16').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=17').catch(()=>{});
       });
     }
   </script>
