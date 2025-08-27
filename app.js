@@ -4,7 +4,7 @@ const hav=(a,b)=>{const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.l
 const state={items:[],categories:[],cart:JSON.parse(localStorage.getItem('wingo.cart')||'[]'),activeCategory:null,sheetItem:null,sheetQty:1,select:{flavors:[],garnish:null,dipQty:0},conf:null,geo:{status:'unknown',distanceKm:null,inside:false},mode:'delivery'};
 
 const el={tabs:$('#tabs'),grid:$('#grid'),
-sheet:$('#sheet'),sheetBackdrop:$('#sheetBackdrop'),sheetImg:$('#sheetImg'),sheetTitle:$('#sheetTitle'),sheetPrice:$('#sheetPrice'),sheetDesc:$('#sheetDesc'),
+sheet:$('#sheet'),sheetBackdrop:$('#sheetBackdrop'),sheetClose:$('#sheetClose'),sheetImg:$('#sheetImg'),sheetTitle:$('#sheetTitle'),sheetPrice:$('#sheetPrice'),sheetDesc:$('#sheetDesc'),
 flavorBlock:$('#flavorBlock'),flavorOptions:$('#flavorOptions'),flavorMax:$('#flavorMax'),flavorHint:$('#flavorHint'),
 garnishBlock:$('#garnishBlock'),garnishOptions:$('#garnishOptions'),
 dipsBlock:$('#dipsBlock'),dipsInfo:$('#dipsInfo'),dipMinus:$('#dipMinus'),dipPlus:$('#dipPlus'),dipQty:$('#dipQty'),dipPriceView:$('#dipPriceView'),
@@ -12,12 +12,12 @@ qtyMinus:$('#qtyMinus'),qtyPlus:$('#qtyPlus'),qtyValue:$('#qtyValue'),addToCart:
 cartBar:$('#cartBar'),cartOpenArea:$('#cartOpenArea'),cartCount:$('#cartCount'),cartTotal:$('#cartTotal'),openCheckout:$('#openCheckout'),
 checkout:$('#checkout'),coBackdrop:$('#coBackdrop'),coClose:$('#coClose'),
 coName:$('#coName'),coPhone:$('#coPhone'),
-addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),
+addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),coNote:$('#coNote'),
 coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
 async function loadAll(){
-  const[m,c]=await Promise.all([fetch('menu.json'),fetch('config.json')]);
+  const[m,c]=await Promise.all([fetch('menu.json?v=19'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
   setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
 }
@@ -59,18 +59,14 @@ function openSheet(item){
     (state.conf.cooking_flavors||[]).forEach(fl=>{
       const o=document.createElement('button'); o.className='opt'; o.textContent=fl;
       o.onclick=()=>{const i=state.select.flavors.indexOf(fl); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
-        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(fl); o.classList.add('active');}
-        updateFlavorHint(item);
-      };
+        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(fl); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
-    });
-    updateFlavorHint(item);
+    }); updateFlavorHint(item);
   } else { el.flavorBlock.style.display='none'; }
 
   if(item.garnish&&item.garnish.options&&item.garnish.options.length){
     el.garnishBlock.style.display=''; el.garnishOptions.innerHTML='';
-    item.garnish.options.forEach((g,i)=>{
-      const o=document.createElement('button'); o.className='opt'+(i===0?' active':''); o.textContent=g; if(i===0) state.select.garnish=g;
+    item.garnish.options.forEach((g,i)=>{ const o=document.createElement('button'); o.className='opt'+(i===0?' active':''); o.textContent=g; if(i===0) state.select.garnish=g;
       o.onclick=()=>{ state.select.garnish=g; [...el.garnishOptions.children].forEach(n=>n.classList.toggle('active',n===o)); };
       el.garnishOptions.appendChild(o);
     });
@@ -81,12 +77,13 @@ function openSheet(item){
     state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
 
-  el.cartBar.classList.add('hidden'); // не перекрывать кнопку «Добавить»
+  el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
 function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.textContent=`Выбрано ${cnt} из ${max}`; }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 el.sheetBackdrop.onclick=closeSheet;
+el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
@@ -114,7 +111,6 @@ el.openCheckout.onclick=()=>openCheckout();
 el.cartOpenArea.onclick=()=>openCheckout();
 
 function openCheckout(){
-  // первый выбор режима — по геозоне
   state.mode = state.geo.inside ? 'delivery' : 'pickup';
   updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
@@ -124,7 +120,6 @@ function openCheckout(){
 el.coClose.onclick=()=>{ el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
 el.coBackdrop.onclick=()=>{ el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
 
-// переключатель Delivery/Pickup
 el.modeSegment.addEventListener('click', (e)=>{
   const btn = e.target.closest('.seg'); if(!btn) return;
   const mode = btn.getAttribute('data-mode');
@@ -132,13 +127,8 @@ el.modeSegment.addEventListener('click', (e)=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  if(state.mode==='delivery'){
-    el.deliveryMode.textContent='Режим: Доставка';
-    el.addressGroup.style.display='';
-  }else{
-    el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address;
-    el.addressGroup.style.display='none';
-  }
+  if(state.mode==='delivery'){ el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display=''; }
+  else { el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address; el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b=>b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
 }
 
@@ -214,28 +204,32 @@ function makeWAOrderLink(){
   }).join('%0A');
   const total=Math.round(state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0));
 
-  let addr='';
-  if(state.mode==='delivery'){
+  let addr=''; if(state.mode==='delivery'){
     const street=(el.coStreet.value||'').trim();
     const house=(el.coHouse.value||'').trim();
     const floor=(el.coFloor.value||'').trim();
     const apt=(el.coApt.value||'').trim();
-    if(!street||!house||!floor||!apt){
-      alert('Пожалуйста, укажите улицу, дом, этаж и квартиру.');
-      throw new Error('Address required');
+    if(!street||!house){
+      alert('Пожалуйста, укажите улицу и дом.');
+      throw new Error('Address street/house required');
     }
-    addr=`ул. ${street}, дом ${house}, этаж ${floor}, кв. ${apt}`;
+    addr=`ул. ${street}, дом ${house}` + (floor?`, этаж ${floor}`:'') + (apt?`, кв. ${apt}`:'');
   }
 
   const name=encodeURIComponent((el.coName.value||'').trim());
   if(!el.coPhone.value) el.coPhone.value='+7';
-  if(!el.coPhone.value.startsWith('+7')) el.coPhone.value='+7'+el.coPhone.value.replace(/^\\+?/,'');
+  if(!el.coPhone.value.startsWith('+7')) el.coPhone.value='+7'+el.coPhone.value.replace(/^\+?/,'');
   const phoneText=encodeURIComponent((el.coPhone.value||'').trim());
   const mode= state.mode==='delivery' ? 'Доставка' : ('Самовывоз — '+state.conf.pickup.address);
   const addrEnc=encodeURIComponent(addr);
-  const text=`Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}`;
+  const note=(el.coNote.value||'').trim();
+  const noteEnc=encodeURIComponent(note);
+  const text=`Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}%0AКомментарий: ${noteEnc}`;
   return `https://wa.me/${phone}?text=${text}${state.conf.utm}`;
 }
-el.coWhatsApp.onclick=()=>{ if(state.cart.length===0){ alert('Сначала добавьте позиции в корзину'); return; } try{ window.open(makeWAOrderLink(),'_blank','noopener'); }catch(e){} };
+el.coWhatsApp.onclick=()=>{
+  if(state.cart.length===0){ alert('Сначала добавьте позиции в корзину'); return; }
+  try{ window.open(makeWAOrderLink(),'_blank','noopener'); }catch(e){}
+};
 
 loadAll();
