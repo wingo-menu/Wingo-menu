@@ -6,8 +6,8 @@
   <title>WINGO CHICKEN — меню и заказ</title>
   <meta name="theme-color" content="#2E7D32" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=17" />
-  <script defer src="app.js?v=17"></script>
+  <link rel="stylesheet" href="styles.css?v=19" />
+  <script defer src="app.js?v=19"></script>
 </head>
 <body>
   <header class="app-header">
@@ -23,6 +23,7 @@
   <div class="sheet" id="sheet" aria-hidden="true">
     <div class="sheet__backdrop" id="sheetBackdrop"></div>
     <div class="sheet__panel" role="dialog" aria-modal="true">
+      <button id="sheetClose" class="sheet__x" aria-label="Закрыть">✕</button>
       <div class="sheet__handle"></div>
       <div class="sheet__content">
         <img id="sheetImg" class="sheet-img" alt="" />
@@ -85,14 +86,18 @@
         <label>Телефон<input id="coPhone" placeholder="+7..." inputmode="tel"></label>
 
         <div id="addressGroup">
-          <div class="opt-title">Адрес доставки (обязательно):</div>
+          <div class="opt-title">Адрес доставки:</div>
           <div class="address-grid">
             <input id="coStreet" placeholder="Улица" />
             <input id="coHouse" placeholder="Дом" />
-            <input id="coFloor" placeholder="Этаж" />
-            <input id="coApt" placeholder="Квартира" />
+            <input id="coFloor" placeholder="Этаж (необязательно)" />
+            <input id="coApt" placeholder="Квартира (необязательно)" />
           </div>
         </div>
+
+        <label>Комментарий курьеру
+          <textarea id="coNote" rows="3" placeholder="Например: подъезд 2, домофон 23, не звонить..."></textarea>
+        </label>
 
         <div class="summary">
           <div id="coSummary"></div>
@@ -105,16 +110,19 @@
   </div>
 
   <div class="cartbar" id="cartBar">
-    <div class="cartbar__summary" id="cartOpenArea"><span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span></div>
+    <div class="cartbar__summary" id="cartOpenArea">
+      <span class="cartbar__icon" aria-hidden="true"></span>
+      <span class="cartbar__label">Корзина</span> ·
+      <span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span>
+    </div>
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <!-- build v17 -->
+  <!-- build v19 -->
   <script>
-    // SW включается только если НЕТ ?nosw=1 — это помогает обойти кэш при проверке
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=17').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
       });
     }
   </script>
