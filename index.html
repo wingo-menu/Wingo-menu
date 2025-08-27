@@ -75,26 +75,35 @@
       </div>
       <div class="checkout__body">
         <div id="deliveryMode" class="delivery-mode"></div>
+
         <label>Имя<input id="coName" placeholder="Как к вам обращаться?"></label>
-        <label>Телефон<input id="coPhone" placeholder="+7..."></label>
-        <label id="addressLabel">Адрес (подъезд/этаж/кв.)<input id="coAddress" placeholder="Укажите детали для курьера"></label>
-        <div class="summary"><div id="coSummary"></div><div class="total"><div>Сумма:</div><div id="coTotal">₸0</div></div></div>
+        <label>Телефон<input id="coPhone" placeholder="+7..." inputmode="tel"></label>
+
+        <div id="addressGroup">
+          <div class="opt-title">Адрес доставки (обязательно):</div>
+          <div class="address-grid">
+            <input id="coStreet" placeholder="Улица" />
+            <input id="coHouse" placeholder="Дом" />
+            <input id="coFloor" placeholder="Этаж" />
+            <input id="coApt" placeholder="Квартира" />
+          </div>
+        </div>
+
+        <div class="summary">
+          <div id="coSummary"></div>
+          <div class="total"><div>Сумма:</div><div id="coTotal">₸0</div></div>
+        </div>
+
         <button class="wa-btn" id="coWhatsApp">Заказать в WhatsApp</button>
       </div>
     </div>
   </div>
 
   <div class="cartbar" id="cartBar">
-    <div class="cartbar__summary"><span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span></div>
+    <div class="cartbar__summary" id="cartOpenArea"><span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span></div>
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-      });
-    }
-  </script>
+  <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
 </body>
 </html>
