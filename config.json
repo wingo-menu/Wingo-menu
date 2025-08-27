@@ -1,0 +1,27 @@
+{
+  "whatsapp_number": "77071052828",
+  "utm": "?utm_source=qr&utm_medium=menu&utm_campaign=wingo",
+  "business_hours": {
+    "daily": {
+      "open": "11:00",
+      "close": "23:00"
+    }
+  },
+  "dip_unit_price": 380,
+  "cooking_flavors": [
+    "BBQ",
+    "Медово-горчичный",
+    "Wingo fire",
+    "Сладко-острый"
+  ],
+  "pickup": {
+    "address": "Балкантау 94"
+  },
+  "delivery": {
+    "center": {
+      "lat": 51.13192937251173,
+      "lng": 71.47830351934499
+    },
+    "radius_km": 1.5
+  }
+}
