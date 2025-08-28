@@ -1,133 +1,112 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>WINGO CHICKEN — меню и заказ</title>
-  <meta name="theme-color" content="#2E7D32" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=23" />
-  <script defer src="app.js?v=23"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WINGO MENU</title>
+<link rel="stylesheet" href="styles.css?v=23b">
+<link rel="icon" href="data:,">
 </head>
 <body>
-  <header class="app-header">
-    <div class="brand">WINGO CHICKEN</div>
-    <div class="right"><span class="hours" id="hoursState">—</span><button id="geoBtn" class="geo-btn">Проверить доставку</button></div>
-  </header>
+<header class="app-header">
+  <div class="brand">WINGO CHICKEN</div>
+  <button id="geoBtn" class="pill">Проверить доставку</button>
+</header>
 
-  <div id="geoBanner" class="geo-banner"></div>
+<nav id="tabs" class="tabs"></nav>
 
-  <nav class="tabs" id="tabs"></nav>
-  <main id="grid" class="grid"></main>
+<main>
+  <section id="grid" class="grid"></section>
+</main>
 
-  <div class="sheet" id="sheet" aria-hidden="true">
-    <div class="sheet__backdrop" id="sheetBackdrop"></div>
-    <div class="sheet__panel" role="dialog" aria-modal="true">
-      <button id="sheetClose" class="sheet__x" aria-label="Закрыть">✕</button>
-      <div class="sheet__handle"></div>
-      <div class="sheet__content">
-        <img id="sheetImg" class="sheet-img" alt="" />
-        <h3 id="sheetTitle"></h3>
-        <div class="price-row"><div class="price" id="sheetPrice"></div></div>
-        <p class="desc" id="sheetDesc"></p>
+<footer id="cartBar" class="cartbar">
+  <div class="cart-meta"><span class="icon">🛒</span><span id="cartText">Корзина · 0 поз. · ₸0</span></div>
+  <button id="checkoutBtn" class="cta">Оформить</button>
+</footer>
 
-        <div class="opt-block" id="flavorBlock">
-          <div class="opt-title">Вкус (выберите <span id="flavorMax">1</span>):</div>
-          <div class="options options-chips" id="flavorOptions"></div>
-          <div class="opt-hint" id="flavorHint"></div>
-        </div>
+<!-- SHEET -->
+<dialog id="sheet" class="sheet">
+  <div class="sheet__body">
+    <button id="sheetClose" class="sheet__x" aria-label="Закрыть">✕</button>
+    <div class="media"><img id="sheetImg" alt=""><div id="sheetPh" class="ph"></div></div>
+    <h2 id="sheetTitle"></h2>
+    <p id="sheetDesc" class="muted"></p>
+    <div class="muted" id="sheetPrice"></div>
 
-        <div class="opt-block" id="garnishBlock">
-          <div class="opt-title">Гарнир:</div>
-          <div class="options options-chips" id="garnishOptions"></div>
-          <div class="opt-hint">Фри или овощные палочки — на выбор (+0₸)</div>
-        </div>
+    <div class="opt" id="flavorBlock">
+      <div class="opt-title">Вкус</div>
+      <div id="flavorOptions" class="options options-chips"></div>
+      <div id="flavorHint" class="hint"></div>
+    </div>
 
-        <div class="opt-block" id="dipsBlock">
-          <div class="opt-title">Дип-соусы</div>
-          <div class="opt-hint" id="dipsInfo"></div>
-          <div class="options options-chips" id="dipsChoice"></div>
-          <div class="opt-hint" id="dipsLeftHint"></div>
-        </div>
-        <div class="opt-block" id="drinksBlock">
-          <div class="opt-title">Напитки</div>
-          <div class="opt-hint" id="drinksInfo"></div>
-          <div class="options options-chips" id="drinksChoice"></div>
-          <div class="opt-hint" id="drinksLeftHint"></div>
-        </div>
+    <div class="opt" id="dipsBlock">
+      <div class="opt-title">Дип-соусы</div>
+      <div id="dipsInfo" class="hint"></div>
+      <div id="dipsChoice" class="options options-chips"></div>
+      <div id="dipsLeftHint" class="hint"></div>
+    </div>
 
+    <div class="opt" id="drinksBlock">
+      <div class="opt-title">Напитки</div>
+      <div id="drinksInfo" class="hint"></div>
+      <div id="drinksChoice" class="options options-chips"></div>
+      <div id="drinksLeftHint" class="hint"></div>
+    </div>
 
-        <div class="qty">
-          <button id="qtyMinus" aria-label="Уменьшить">−</button>
-          <span id="qtyValue">1</span>
-          <button id="qtyPlus" aria-label="Увеличить">+</button>
-        </div>
-        <button class="add-btn" id="addToCart">Добавить</button>
+    <div class="qtyrow">
+      <div class="qty">
+        <button id="qtyMinus" class="mini">−</button>
+        <span id="qtyValue">1</span>
+        <button id="qtyPlus" class="mini">+</button>
       </div>
+      <button id="addBtn" class="cta">Добавить</button>
     </div>
   </div>
+</dialog>
 
-  <div class="checkout" id="checkout" aria-hidden="true">
-    <div class="checkout__backdrop" id="coBackdrop"></div>
-    <div class="checkout__panel">
-      <div class="checkout__header">
-        <h3>Оформление заказа</h3>
-        <button id="coClose" aria-label="Закрыть">✕</button>
-      </div>
-      <div class="checkout__body">
-        <div id="deliveryMode" class="delivery-mode"></div>
-
-        <div class="segment" id="modeSegment">
-          <button data-mode="delivery" class="seg active">Доставка</button>
-          <button data-mode="pickup" class="seg">Самовывоз</button>
-        </div>
-
-        <label>Имя<input id="coName" placeholder="Как к вам обращаться?"></label>
-        <label>Телефон<input id="coPhone" placeholder="+7..." inputmode="tel"></label>
-
-        <div id="addressGroup">
-          <div class="opt-title">Адрес доставки:</div>
-          <div class="address-grid">
-            <input id="coStreet" placeholder="Улица" />
-            <input id="coHouse" placeholder="Дом" />
-            <input id="coFloor" placeholder="Этаж (необязательно)" />
-            <input id="coApt" placeholder="Квартира (необязательно)" />
-          </div>
-        </div>
-
-        <label>Комментарий курьеру
-          <textarea id="coNote" rows="3" placeholder="Например: подъезд 2, домофон 23, не звонить..."></textarea>
-        </label>
-
-        <div class="summary">
-          <div id="coSummary"></div>
-          <div class="total"><div>Сумма:</div><div id="coTotal">₸0</div></div>
-        </div>
-
-        <button class="wa-btn" id="coWhatsApp">Заказать в WhatsApp</button>
-      </div>
+<!-- CHECKOUT -->
+<dialog id="checkout" class="sheet">
+  <div class="sheet__body">
+    <div class="checkout__header">
+      <h3>Ваш заказ</h3>
+      <button id="coClose">✕</button>
+    </div>
+    <div class="segment" id="modeSegment">
+      <button data-mode="pickup" class="seg active">Самовывоз</button>
+      <button data-mode="delivery" class="seg">Доставка</button>
+    </div>
+    <div id="geoInline" class="geo-inline" style="display:none"></div>
+    <div id="cartList"></div>
+    <div class="comment">
+      <label>Комментарий к заказу</label>
+      <textarea id="comment" rows="3" placeholder="Аллергии, уточнения и т.п."></textarea>
+    </div>
+    <div class="total">
+      <div id="totalText"></div>
+      <button id="waBtn" class="cta">Отправить в WhatsApp</button>
     </div>
   </div>
+</dialog>
 
-  <div class="cartbar" id="cartBar">
-    <div class="cartbar__summary" id="cartOpenArea">
-      <span class="cartbar__icon" aria-hidden="true"></span>
-      <span class="cartbar__label">Корзина</span> ·
-      <span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span>
-    </div>
-    <button id="openCheckout" class="cartbar__cta">Оформить</button>
-  </div>
+<div id="verBadge">v23b</div>
 
-  <!-- build v22 -->
-  <script>
-    if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=20').catch(()=>{});
-      });
-    }
-  </script>
+<script src="app.js?v=23b" defer></script>
+
+<!-- v23b: unregister any existing service workers -->
+<script>
+if ('serviceWorker' in navigator) { 
+  navigator.serviceWorker.getRegistrations().then(list => list.forEach(r => r.unregister())).catch(()=>{});
+}
+</script>
+
+<!-- simple error overlay -->
+<script>
+window.addEventListener('error', e=>{
+  const d=document.createElement('div');
+  d.style='position:fixed;left:0;right:0;bottom:0;background:#fee;color:#900;padding:8px 12px;z-index:9999;font:12px/1 system-ui';
+  d.textContent='Ошибка: '+(e.message||'')+' @ '+(e.filename||'')+':'+(e.lineno||'');
+  document.body.appendChild(d);
+});
+</script>
 </body>
 </html>
