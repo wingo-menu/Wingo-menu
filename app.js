@@ -1,3 +1,11 @@
+
+function updateStickyTabsOffset(){
+  try{
+    const h=document.querySelector('.app-header');
+    if(h){ document.documentElement.style.setProperty('--tabs-top', (h.offsetHeight||56)+'px'); }
+  }catch(e){}
+}
+
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)], money=v=>'₸'+Math.round(v||0).toLocaleString('ru-RU');
 const hav=(a,b)=>{const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLon=toRad(b.lng-a.lng);const s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
 
@@ -17,9 +25,9 @@ coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
 async function loadAll(){
-  const[m,c]=await Promise.all([fetch('menu.json?v=19'),fetch('config.json')]);
+  const[m,c]=await Promise.all([fetch('menu.json?v=24'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
-  setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
+  setupHours(); buildCategories(); updateStickyTabsOffset(); render(); updateCartBar(); updateGeoUI();
 }
 function setupHours(){
   const n=new Date(), o=state.conf.business_hours.daily.open.split(':').map(Number), c=state.conf.business_hours.daily.close.split(':').map(Number);
@@ -87,8 +95,8 @@ el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
-el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; el.dipQty.textContent=state.select.dipQty; } };
-el.dipPlus.onclick=()=>{ state.select.dipQty++; el.dipQty.textContent=state.select.dipQty; };
+if(el.dipMinus){ el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; } el.dipQty.textContent=state.select.dipQty; } };
+if(el.dipPlus){ el.dipPlus.onclick=()=>{ state.select.dipQty++; } el.dipQty.textContent=state.select.dipQty; };
 
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
@@ -233,3 +241,5 @@ el.coWhatsApp.onclick=()=>{
 };
 
 loadAll();
+
+window.addEventListener('resize', updateStickyTabsOffset);
