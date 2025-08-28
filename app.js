@@ -1,7 +1,3 @@
-const MENU_EMBED = {"items": [{"id": "combo-wings-6", "category": "SOLO", "name": "Комбо крылышки (6)", "description": "6 крылышек с выбором 1 вкуса, картофель фри или овощные палочки, 1 дип-соус и напиток 0,5 л", "price": 3990, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/1.webp", "drinks_included": 1}, {"id": "solo-mix-5-2", "category": "SOLO", "name": "Solo MIX (5 крыльев + 2 тендерса)", "description": "5 крылышек и 2 тендерса с выбором 1 вкуса, 1 дип-соус", "price": 2990, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/2.webp"}, {"id": "wings-10", "category": "SOLO", "name": "Крылышки (10)", "description": "10 крылышек с выбором до 2 вкусов (Дип-соус не входит)", "price": 2790, "flavors_max": 1, "image": "images/3.webp"}, {"id": "combo-tenders-5", "category": "SOLO", "name": "Комбо тендерсы (5)", "description": "5 тендерса с выбором до 2 вкусов, стандартный картофель фри или овощные палочки, 1 дип-соус и 1 напиток 0,5 л", "price": 4390, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/4.webp", "drinks_included": 1}, {"id": "tenders-4", "category": "SOLO", "name": "Тендерсы (4)", "description": "4 тендерса с выбором до 2 вкусов и 1 дип-соуса", "price": 2590, "flavors_max": 1, "dips_included": 1, "image": "images/5.webp"}, {"id": "duo-mix-12-4", "category": "DUO", "name": "Duo MIX (12 крыльев + 4 тендерса)", "description": "12 крылышек и 4 тендерса с выбором до 2 вкусов, 2 дип-соуса", "price": 6690, "flavors_max": 2, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 2, "image": "images/6.webp"}, {"id": "duo-wings-15", "category": "DUO", "name": "Сет на двоих (15 крыльев)", "description": "15 крылышек с выбором до 2 вкусов, картофель фри или овощные палочки, 2 дип-соуса и 2 напитка 0,5 л", "price": 6890, "flavors_max": 2, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 2, "image": "images/7.webp", "drinks_included": 2}, {"id": "friends-30", "category": "СЕТЫ НА КОМПАНИЮ", "name": "Friends 30", "description": "20 крылышек и 10 тендерсов с выбором до 3 вкусов, 6 дип-соусов", "price": 9590, "flavors_max": 3, "dips_included": 6, "image": "images/8.webp"}, {"id": "hangout-50", "category": "СЕТЫ НА КОМПАНИЮ", "name": "Hangout 50", "description": "34 крылышек и 16 тендерсов с выбором до 4 вкусов, 8 дип-соусов", "price": 14590, "flavors_max": 4, "dips_included": 8, "image": "images/9.webp"}, {"id": "fries", "category": "ГАРНИРЫ", "name": "Картофель фри", "description": "Наш картофель фри горячий и хрустящий, готовится по заказу и обсыпается фирменной приправой Wingo Seasoning", "price": 790, "image": "images/10.webp"}, {"id": "corn", "category": "ГАРНИРЫ", "name": "Жареная кукуруза", "description": "6 кусочков жареной кукурузы посыпанной фирменной приправой", "price": 1890, "image": "images/11.webp"}, {"id": "dip-ranch", "category": "СОУСЫ (ДИПЫ)", "name": "Ранч", "description": "Авторский Ранч — сливочный соус с нотками зелени. Любимец гостей и идеальная пара к любому вкусу", "price": 380, "image": "images/12.webp"}, {"id": "dip-cheese", "category": "СОУСЫ (ДИПЫ)", "name": "Сырный соус", "description": "Авторский сливочно-сырный соус с насыщенным вкусом и мягкой текстурой. Идеален с картофелем и курочкой", "price": 380, "image": "images/13.webp"}, {"id": "dip-sweetspicy", "category": "СОУСЫ (ДИПЫ)", "name": "Сладко-острый", "description": "Авторский соус с гармонией сладости и остринки. Идеально подчёркивает вкус хрустящей курочки", "price": 380, "image": "images/14.webp"}, {"id": "dip-bbq", "category": "СОУСЫ (ДИПЫ)", "name": "BBQ", "description": "Авторский BBQ соус с ароматом копчения, лёгкой сладостью и пряной глубиной. Классика с дымком", "price": 380, "image": "images/15.webp"}, {"id": "dip-honey-mustard", "category": "СОУСЫ (ДИПЫ)", "name": "Медово-горчичный", "description": "Авторский соус с насыщенным медовым вкусом и острой горчичной ноткой. Сладко, пикантно и ярко", "price": 380, "image": "images/16.webp"}, {"id": "coke-05", "category": "НАПИТКИ", "name": "Coca-Cola 0,5", "description": "Освежающий газированный напиток, идеально дополняющий курочку и хрустящую картошку", "price": 890, "image": "images/17.webp"}, {"id": "fuse-05", "category": "НАПИТКИ", "name": "Fuse Tea 0,5", "description": "Освежающий холодный чай", "price": 790, "image": "images/18.webp"}, {"id": "water-asu-05", "category": "НАПИТКИ", "name": "Вода Asu 0,5", "description": "Негазированная вода", "price": 690, "image": "images/19.webp"}]};
-const CONFIG_EMBED = {"whatsapp_number": "77071052828", "utm": "?utm_source=qr&utm_medium=menu&utm_campaign=wingo", "business_hours": {"daily": {"open": "11:00", "close": "23:00"}}, "dip_unit_price": 380, "cooking_flavors": [{"name": "BBQ", "heat": 0, "color": "#6a3b14", "note": "неострое"}, {"name": "Медово-горчичный", "heat": 0, "color": "#f2b705", "note": "неострое"}, {"name": "Сладко-острый", "heat": 1, "color": "#e65a1e", "note": "средняя острота"}, {"name": "Wingo fire", "heat": 3, "color": "#d61c1c", "note": "острое"}], "pickup": {"address": "Балкантау 94"}, "delivery": {"center": {"lat": 51.13192937251173, "lng": 71.47830351934499}, "radius_km": 1.5}, "dip_flavors": ["Ранч", "Сырный", "Сладко-острый", "BBQ", "Медово-горчичный"], "drink_flavors": ["Coca-Cola 0,5", "Fuse Tea 0,5", "Вода Asu 0,5"]};
-const OFFLINE_MODE=true;
-
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)], money=v=>'₸'+Math.round(v||0).toLocaleString('ru-RU');
 const hav=(a,b)=>{const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLon=toRad(b.lng-a.lng);const s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
 
@@ -11,7 +7,7 @@ const el={tabs:$('#tabs'),grid:$('#grid'),
 sheet:$('#sheet'),sheetBackdrop:$('#sheetBackdrop'),sheetClose:$('#sheetClose'),sheetImg:$('#sheetImg'),sheetTitle:$('#sheetTitle'),sheetPrice:$('#sheetPrice'),sheetDesc:$('#sheetDesc'),
 flavorBlock:$('#flavorBlock'),flavorOptions:$('#flavorOptions'),flavorMax:$('#flavorMax'),flavorHint:$('#flavorHint'),
 garnishBlock:$('#garnishBlock'),garnishOptions:$('#garnishOptions'),
-dipsBlock:$('#dipsBlock'),dipsInfo:$('#dipsInfo'),dipMinus:$('#dipMinus'),dipPlus:$('#dipPlus'),dipQty:$('#dipQty'),dipPriceView:$('#dipPriceView'),drinksBlock:$('#drinksBlock'),drinksInfo:$('#drinksInfo'),drinksChoice:$('#drinksChoice'),drinksLeftHint:$('#drinksLeftHint'),
+dipsBlock:$('#dipsBlock'),dipsInfo:$('#dipsInfo'),dipMinus:$('#dipMinus'),dipPlus:$('#dipPlus'),dipQty:$('#dipQty'),dipPriceView:$('#dipPriceView'),
 qtyMinus:$('#qtyMinus'),qtyPlus:$('#qtyPlus'),qtyValue:$('#qtyValue'),addToCart:$('#addToCart'),
 cartBar:$('#cartBar'),cartOpenArea:$('#cartOpenArea'),cartCount:$('#cartCount'),cartTotal:$('#cartTotal'),openCheckout:$('#openCheckout'),
 checkout:$('#checkout'),coBackdrop:$('#coBackdrop'),coClose:$('#coClose'),
@@ -21,8 +17,9 @@ coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
 async function loadAll(){
-  state.menu = MENU_EMBED;
-  state.conf = CONFIG_EMBED;
+  const[m,c]=await Promise.all([fetch('menu.json?v=19'),fetch('config.json')]);
+  state.items=(await m.json()).items||[]; state.conf=await c.json();
+  setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
 }
 function setupHours(){
   const n=new Date(), o=state.conf.business_hours.daily.open.split(':').map(Number), c=state.conf.business_hours.daily.close.split(':').map(Number);
@@ -54,42 +51,15 @@ function render(){
 }
 
 function openSheet(item){
-  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipCounts:{},drinkCounts:{}};
-  el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; 
-  // Drinks included handling
-  if(typeof item.drinks_included==='number' && item.drinks_included>0){
-    if(el.drinksBlock){ el.drinksBlock.style.display=''; }
-    if(el.drinksInfo){ el.drinksInfo.textContent = `Входит: ${item.drinks_included} напиток` + (item.drinks_included===1?'':'а'); }
-    if(el.drinksChoice){ el.drinksChoice.innerHTML=''; }
-    state.select.drinkCounts = {};
-    const drinks = (state.conf.drink_flavors||[]);
-    drinks.forEach(dn=>{
-      state.select.drinkCounts[dn]=0;
-      const row=document.createElement('div'); row.className='opt drink';
-      row.innerHTML = `<span class="nm">${dn}</span><div class="ctr"><button class="mini">−</button><span class="v">0</span><button class="mini">+</button></div>`;
-      const btns=row.querySelectorAll('button.mini'); const lbl=row.querySelector('.v');
-      const update=()=>{ lbl.textContent=state.select.drinkCounts[dn]; const left=item.drinks_included-Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(el.drinksLeftHint){ el.drinksLeftHint.textContent = left>0?`Осталось распределить: ${left}`:`Распределено полностью`; } };
-      btns[0].addEventListener('click',()=>{ if(state.select.drinkCounts[dn]>0){ state.select.drinkCounts[dn]--; update(); }});
-      btns[1].addEventListener('click',()=>{ const sum=Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(sum<item.drinks_included){ state.select.drinkCounts[dn]++; update(); }});
-      if(el.drinksChoice){ el.drinksChoice.appendChild(row); }
-      update();
-    });
-  } else { if(el.drinksBlock){ el.drinksBlock.style.display='none'; } }
-el.qtyValue.textContent=state.sheetQty;
+  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0};
+  el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; el.qtyValue.textContent=state.sheetQty;
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
-    
-(state.conf.cooking_flavors||[]).forEach(fl=>{
-  const o=document.createElement('button');
-  o.className='opt flavor';
-  const name = (typeof fl==='string') ? fl : (fl.name||'');
-  const heat = (typeof fl==='object' && typeof fl.heat==='number') ? fl.heat : 0;
-  const color = (typeof fl==='object' && fl.color) ? fl.color : '';
-  const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
-  o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
-o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
-        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(name); o.classList.add('active');} updateFlavorHint(item); };
+    (state.conf.cooking_flavors||[]).forEach(fl=>{
+      const o=document.createElement('button'); o.className='opt'; o.textContent=fl;
+      o.onclick=()=>{const i=state.select.flavors.indexOf(fl); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
+        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(fl); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
     }); updateFlavorHint(item);
   } else { el.flavorBlock.style.display='none'; }
@@ -104,67 +74,21 @@ o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select
 
   if(typeof item.dips_included==='number'){
     el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
-    state.select.dipQty=0; // el.dipQty.textContent='0'; // el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
+    state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
-
-  
-  // Included dip choice UI
-  if(typeof item.dips_included==='number' && el.dipsChoice){
-    const dips = state.conf.dip_flavors || [];
-    el.dipsChoice.innerHTML='';
-    state.select.dipCounts = {};
-    dips.forEach(dn=>{
-      state.select.dipCounts[dn]=0;
-      const row = document.createElement('div'); row.className='opt dip';
-      row.innerHTML = `<span class="nm">${dn}</span>
-        <span class="ctr">
-          <button class="mini minus" type="button">−</button>
-          <span class="c">0</span>
-          <button class="mini plus" type="button">+</button>
-        </span>`;
-      const minus = row.querySelector('.minus');
-      const plus = row.querySelector('.plus');
-      const cEl = row.querySelector('.c');
-      const getAssigned = ()=>Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
-      minus.onclick = ()=>{
-        const cur = state.select.dipCounts[dn]||0;
-        if(cur>0){ state.select.dipCounts[dn]=cur-1; cEl.textContent = state.select.dipCounts[dn]; }
-        const left=(item.dips_included||0)-getAssigned();
-        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-      };
-      plus.onclick = ()=>{
-        const assigned = getAssigned();
-        if(assigned >= (item.dips_included||0)) return;
-        const cur = state.select.dipCounts[dn]||0;
-        state.select.dipCounts[dn]=cur+1; cEl.textContent = state.select.dipCounts[dn];
-        const left=(item.dips_included||0)-getAssigned();
-        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-      };
-      el.dipsChoice.appendChild(row);
-    });
-    const assigned = Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
-    const left=(item.dips_included||0)-assigned;
-    if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-  }
 
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
-function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.innerHTML = `Выбрано ${cnt} из ${max}. <span class="muted">🌶 шкала: 0 — неострое, 1 — средняя, 3 — острое.</span>`;
-if(item.dips_included>0){
-  const note = document.createElement('div');
-  note.className='muted';
-  note.textContent='Белый на фото — дип (например, Ранч). Его выбирают отдельно ниже.';
-  el.flavorHint.appendChild(note);
-} }
+function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.textContent=`Выбрано ${cnt} из ${max}`; }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 el.sheetBackdrop.onclick=closeSheet;
 el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
-el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; // el.dipQty.textContent=state.select.dipQty; } };
-el.dipPlus.onclick=()=>{ state.select.dipQty++; // el.dipQty.textContent=state.select.dipQty; };
+el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; el.dipQty.textContent=state.select.dipQty; } };
+el.dipPlus.onclick=()=>{ state.select.dipQty++; el.dipQty.textContent=state.select.dipQty; };
 
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
@@ -172,7 +96,7 @@ function addToCart(){
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
   if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
-  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts,extraDipQty:state.select.dipQty}); }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,extraDipQty:state.select.dipQty}); }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -214,7 +138,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
@@ -273,7 +197,7 @@ function makeWAOrderLink(){
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
