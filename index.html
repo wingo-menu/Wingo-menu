@@ -9,10 +9,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=26" />
-  <script defer src="app.js?v=26"></script>
+  <link rel="stylesheet" href="styles.css?v=27" />
+  <script defer src="app.js?v=27"></script>
 </head>
 <body>
+<div id="verBadge">v27</div>
   <header class="app-header">
     <div class="brand">WINGO CHICKEN</div>
     <div class="right"><span class="hours" id="hoursState">—</span><button id="geoBtn" class="geo-btn">Проверить доставку</button></div>
@@ -118,17 +119,15 @@
   <script>
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=25').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
       });
     }
   </script>
 
 <script>
-// v26: Unregister any existing service workers in this scope
+// v27: Unregister any existing service workers in this scope
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(list => {
-    list.forEach(r => r.unregister());
-  }).catch(()=>{});
+  navigator.serviceWorker.getRegistrations().then(list => list.forEach(r => r.unregister())).catch(()=>{});
 }
 </script>
 
