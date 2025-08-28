@@ -1,3 +1,7 @@
+const MENU_EMBED = {"items": [{"id": "combo-wings-6", "category": "SOLO", "name": "Комбо крылышки (6)", "description": "6 крыльев, гарнир на выбор, 1 дип, напиток 0.5 л", "price": 3990, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/1.webp"}, {"id": "solo-mix-5-2", "category": "SOLO", "name": "Solo MIX (5 крыльев + 2 тендерса)", "description": "1 дип-соус включён", "price": 2990, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/2.webp"}, {"id": "wings-10", "category": "SOLO", "name": "Крылышки (10)", "description": "Дип не входит", "price": 2790, "flavors_max": 1, "image": "images/3.webp"}, {"id": "combo-tenders-5", "category": "SOLO", "name": "Комбо тендерсы (5)", "description": "Гарнир на выбор, 1 дип, напиток 0.5 л", "price": 4390, "flavors_max": 1, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 1, "image": "images/4.webp"}, {"id": "tenders-4", "category": "SOLO", "name": "Тендерсы (4)", "description": "1 дип включён", "price": 2590, "flavors_max": 1, "dips_included": 1, "image": "images/5.webp"}, {"id": "duo-mix-12-4", "category": "DUO", "name": "Duo MIX (12 крыльев + 4 тендерса)", "description": "2 дипа включено", "price": 6690, "flavors_max": 2, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 2, "image": "images/6.webp"}, {"id": "duo-wings-15", "category": "DUO", "name": "Сет на двоих (15 крыльев)", "description": "Гарнир на выбор, 2 дипа, 2 напитка 0.5 л", "price": 6890, "flavors_max": 2, "garnish": {"options": ["Картофель фри", "Овощные палочки"]}, "dips_included": 2, "image": "images/7.webp"}, {"id": "friends-30", "category": "СЕТЫ НА КОМПАНИЮ", "name": "Friends 30", "description": "20 крыльев + 10 тендерсов, 6 дипов", "price": 9590, "flavors_max": 3, "dips_included": 6, "image": "images/8.webp"}, {"id": "hangout-50", "category": "СЕТЫ НА КОМПАНИЮ", "name": "Hangout 50", "description": "34 крыльев + 16 тендерсов, 8 дипов", "price": 14590, "flavors_max": 4, "dips_included": 8, "image": "images/9.webp"}, {"id": "fries", "category": "ГАРНИРЫ", "name": "Картофель фри", "description": "Горячий и хрустящий. Wingo Seasoning.", "price": 790, "image": "images/10.webp"}, {"id": "corn", "category": "ГАРНИРЫ", "name": "Жареная кукуруза", "description": "6 кусочков с фирменной приправой.", "price": 1890, "image": "images/11.webp"}, {"id": "dip-ranch", "category": "СОУСЫ (ДИПЫ)", "name": "Ранч", "description": "Сливочный, с зеленью.", "price": 380, "image": "images/12.webp"}, {"id": "dip-cheese", "category": "СОУСЫ (ДИПЫ)", "name": "Сырный соус", "description": "Сливочно-сырный.", "price": 380, "image": "images/13.webp"}, {"id": "dip-sweetspicy", "category": "СОУСЫ (ДИПЫ)", "name": "Сладко-острый", "description": "Сладость + остринка.", "price": 380, "image": "images/14.webp"}, {"id": "dip-bbq", "category": "СОУСЫ (ДИПЫ)", "name": "BBQ", "description": "Классика с дымком.", "price": 380, "image": "images/15.webp"}, {"id": "dip-honey-mustard", "category": "СОУСЫ (ДИПЫ)", "name": "Медово-горчичный", "description": "Сладко и пикантно.", "price": 380, "image": "images/16.webp"}, {"id": "coke-05", "category": "НАПИТКИ", "name": "Coca-Cola 0,5", "description": "Освежает.", "price": 890, "image": "images/17.webp"}, {"id": "fuse-05", "category": "НАПИТКИ", "name": "Fuse Tea 0,5", "description": "Холодный чай.", "price": 790, "image": "images/18.webp"}, {"id": "water-asu-05", "category": "НАПИТКИ", "name": "Вода Asu 0,5", "description": "Негазированная.", "price": 690, "image": "images/19.webp"}]};
+const CONFIG_EMBED = {"whatsapp_number": "77071052828", "utm": "?utm_source=qr&utm_medium=menu&utm_campaign=wingo", "business_hours": {"daily": {"open": "11:00", "close": "23:00"}}, "dip_unit_price": 380, "cooking_flavors": ["BBQ", "Медово-горчичный", "Wingo fire", "Сладко-острый"], "pickup": {"address": "Балкантау 94"}, "delivery": {"center": {"lat": 51.13192937251173, "lng": 71.47830351934499}, "radius_km": 1.5}};
+const OFFLINE_MODE=true;
+
 
 async function safeFetchJSON(urls){
   const list = Array.isArray(urls)?urls:[urls];
@@ -44,13 +48,10 @@ hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),delive
 
 
 async function loadAll(){
-  try{
-    const [m,c] = await Promise.all([
-      safeFetchJSON(['menu.json?v=25','menu.json']),
-      safeFetchJSON(['config.json?v=25','config.json'])
-    ]);
-    state.menu=m; state.conf=c;
-  }catch(e){
+  // Offline embedded mode: no network fetches
+  state.menu = MENU_EMBED;
+  state.conf = CONFIG_EMBED;
+}catch(e){
     console.warn('Using FALLBACK due to load error:', e);
     state.menu=MENU_FALLBACK; state.conf=CONFIG_FALLBACK;
   }
@@ -283,3 +284,9 @@ el.coWhatsApp.onclick=()=>{
 loadAll();
 
 window.addEventListener('resize', updateStickyTabsOffset);
+window.addEventListener('error', (e)=>{
+  const d=document.createElement('div');
+  d.style='position:fixed;left:0;right:0;bottom:0;background:#fee;color:#900;padding:8px 12px;z-index:9999;font:12px/1.4 Inter, sans-serif';
+  d.textContent='JS error: '+(e.message||'')+' @ '+(e.filename||'')+':'+(e.lineno||'');
+  document.body.appendChild(d);
+});
