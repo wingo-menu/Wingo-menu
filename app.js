@@ -14,7 +14,7 @@ checkout:$('#checkout'),coBackdrop:$('#coBackdrop'),coClose:$('#coClose'),
 coName:$('#coName'),coPhone:$('#coPhone'),
 addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),coNote:$('#coNote'),
 coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
-hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
+hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment'),geoInline:$('#geoInline')};
 
 
 function listDips(){ return (state.items||[]).filter(x=>x.category==='СОУСЫ (ДИПЫ)').map(x=>x.name); }
@@ -51,7 +51,7 @@ function fillChoiceList(rootEl, names, stateKey, included, leftHintEl, infoEl, n
 async function loadAll(){
   const[m,c]=await Promise.all([fetch('menu.json?v=19'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
-  setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
+  setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI(); updateGeoInline();
 }
 function setupHours(){
   const n=new Date(), o=state.conf.business_hours.daily.open.split(':').map(Number), c=state.conf.business_hours.daily.close.split(':').map(Number);
@@ -88,8 +88,7 @@ function openSheet(item){
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
-    (state.conf.cooking_flavors||[]).forEach(fl=>{
-      const o=document.createElement('button'); o.className='opt'; o.textContent=fl;
+    (state.conf.cooking_flavors||[]).forEach(fl=>{ const name=(typeof fl==='string'?fl:(fl.name||'')); const heat=(typeof fl==='object'&&fl.heat!=null?fl.heat:0); const color=(typeof fl==='object'&&fl.color?fl.color:'#e3e3e3'); const o=document.createElement('button'); o.className='opt flavor'; o.innerHTML=`<span class="left"><span class="dot" style="background:${color}"></span><span>${name}</span></span><span class="peppers">${'🌶'.repeat(Math.min(3,Math.max(0,heat)))}</span>`;
       o.onclick=()=>{const i=state.select.flavors.indexOf(fl); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
         else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(fl); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
@@ -116,7 +115,7 @@ function openSheet(item){
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
-function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.textContent=`Выбрано ${cnt} из ${max}`; }
+function updateFlavorHint(item){ const cnt=state.select.flavors.length; el.flavorHint.innerHTML=`Выбрано ${cnt} из ${item.flavors_max||1}. <span class="muted">🌶 0 — неострое · 1 — средняя · 3 — острое</span>`; } из ${max}`; }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 el.sheetBackdrop.onclick=closeSheet;
 el.sheetClose.onclick=closeSheet;
@@ -163,7 +162,7 @@ el.modeSegment.addEventListener('click', (e)=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  if(state.mode==='delivery'){ el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display=''; }
+  if(state.mode==='delivery'){ el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display='';  updateGeoInline(); }
   else { el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address; el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b=>b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
 }
@@ -174,9 +173,9 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
-    if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
-    const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
+    if(c.dips_included){ const pairs=Object.entries(c.dips||{}).filter(([k,v])=>v>0).map(([k,v])=>`${k}×${v}`); extras.push('дипы: '+(pairs.join(', ')||('входит '+c.dips_included))); }
+    if(c.drinks_included){ const pairs=Object.entries(c.drinks||{}).filter(([k,v])=>v>0).map(([k,v])=>`${k}×${v}`); extras.push('напитки: '+(pairs.join(', ')||('входит '+c.drinks_included))); }
+    const sum=c.qty*(c.basePrice);
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
@@ -188,7 +187,7 @@ function renderCoSummary(){
       </div>
     </div>`;
   }).join('');
-  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0);
+  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice),0);
   el.coSummary.innerHTML = lines; el.coTotal.textContent = money(total);
 }
 el.coSummary.addEventListener('click', (e)=>{
@@ -211,7 +210,7 @@ function updateGeoUI(){
   b.style.display='block';
 }
 function doGeocheck(){
-  if(!navigator.geolocation){ state.geo.status='denied'; updateGeoUI(); return; }
+  if(!navigator.geolocation){ state.geo.status='denied'; updateGeoUI(); updateGeoInline(); return; }
   el.geoBtn.disabled=true; el.geoBtn.textContent='Определяем...';
   navigator.geolocation.getCurrentPosition(pos=>{
     const user={lat:pos.coords.latitude,lng:pos.coords.longitude};
@@ -219,10 +218,10 @@ function doGeocheck(){
     const dist=hav(center,user); state.geo.distanceKm=dist; state.geo.inside=dist<=r;
     state.geo.status=state.geo.inside?'inside':'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
-    updateGeoUI();
+    updateGeoUI(); updateGeoInline();
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
-    state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
+    state.geo.status='denied'; state.geo.inside=false; updateGeoUI(); updateGeoInline();
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
 }
@@ -269,3 +268,18 @@ el.coWhatsApp.onclick=()=>{
 };
 
 loadAll();
+
+function updateGeoInline(){
+  if(!el.geoInline) return;
+  if(state.mode!=='delivery'){ el.geoInline.style.display='none'; el.geoInline.innerHTML=''; return; }
+  if(state.geo.status==='inside'){ el.geoInline.style.display='none'; el.geoInline.innerHTML=''; return; }
+  let html='';
+  if(state.geo.status==='unknown' || state.geo.status==='denied'){
+    html = '<div class="geo-inline__box"><div>Для доставки нужно определить зону</div><button class="geo-inline__btn" id="geoInlineBtn">Проверить доставку</button></div>';
+  } else if(state.geo.status==='outside'){
+    const r = state.conf.delivery.radius_km||1.5;
+    html = '<div class="geo-inline__box bad">Вне зоны доставки (радиус '+r+' км). Доступен самовывоз.</div>';
+  }
+  el.geoInline.innerHTML = html; el.geoInline.style.display='block';
+  const b=document.getElementById('geoInlineBtn'); if(b) b.onclick=doGeocheck;
+}
