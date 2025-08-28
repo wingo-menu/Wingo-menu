@@ -38,7 +38,7 @@
       "name": "Крылышки (10)",
       "description": "Дип не входит",
       "price": 2790,
-      "flavors_max": 2,
+      "flavors_max": 1,
       "image": "images/3.webp"
     },
     {
@@ -47,7 +47,7 @@
       "name": "Комбо тендерсы (5)",
       "description": "Гарнир на выбор, 1 дип, напиток 0.5 л",
       "price": 4390,
-      "flavors_max": 2,
+      "flavors_max": 1,
       "garnish": {
         "options": [
           "Картофель фри",
@@ -63,7 +63,7 @@
       "name": "Тендерсы (4)",
       "description": "1 дип включён",
       "price": 2590,
-      "flavors_max": 2,
+      "flavors_max": 1,
       "dips_included": 1,
       "image": "images/5.webp"
     },
