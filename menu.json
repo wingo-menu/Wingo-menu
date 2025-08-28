@@ -14,7 +14,8 @@
         ]
       },
       "dips_included": 1,
-      "image": "images/1.webp"
+      "image": "images/1.webp",
+      "drinks_included": 1
     },
     {
       "id": "solo-mix-5-2",
@@ -55,7 +56,8 @@
         ]
       },
       "dips_included": 1,
-      "image": "images/4.webp"
+      "image": "images/4.webp",
+      "drinks_included": 1
     },
     {
       "id": "tenders-4",
@@ -97,7 +99,8 @@
         ]
       },
       "dips_included": 2,
-      "image": "images/7.webp"
+      "image": "images/7.webp",
+      "drinks_included": 2
     },
     {
       "id": "friends-30",

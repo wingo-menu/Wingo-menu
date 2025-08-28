@@ -7,7 +7,7 @@ const el={tabs:$('#tabs'),grid:$('#grid'),
 sheet:$('#sheet'),sheetBackdrop:$('#sheetBackdrop'),sheetClose:$('#sheetClose'),sheetImg:$('#sheetImg'),sheetTitle:$('#sheetTitle'),sheetPrice:$('#sheetPrice'),sheetDesc:$('#sheetDesc'),
 flavorBlock:$('#flavorBlock'),flavorOptions:$('#flavorOptions'),flavorMax:$('#flavorMax'),flavorHint:$('#flavorHint'),
 garnishBlock:$('#garnishBlock'),garnishOptions:$('#garnishOptions'),
-dipsBlock:$('#dipsBlock'),dipsInfo:$('#dipsInfo'),dipMinus:$('#dipMinus'),dipPlus:$('#dipPlus'),dipQty:$('#dipQty'),dipPriceView:$('#dipPriceView'),
+dipsBlock:$('#dipsBlock'),dipsInfo:$('#dipsInfo'),dipMinus:$('#dipMinus'),dipPlus:$('#dipPlus'),dipQty:$('#dipQty'),dipPriceView:$('#dipPriceView'),drinksBlock:$('#drinksBlock'),drinksInfo:$('#drinksInfo'),drinksChoice:$('#drinksChoice'),drinksLeftHint:$('#drinksLeftHint'),
 qtyMinus:$('#qtyMinus'),qtyPlus:$('#qtyPlus'),qtyValue:$('#qtyValue'),addToCart:$('#addToCart'),
 cartBar:$('#cartBar'),cartOpenArea:$('#cartOpenArea'),cartCount:$('#cartCount'),cartTotal:$('#cartTotal'),openCheckout:$('#openCheckout'),
 checkout:$('#checkout'),coBackdrop:$('#coBackdrop'),coClose:$('#coClose'),
@@ -51,8 +51,28 @@ function render(){
 }
 
 function openSheet(item){
-  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0,dipCounts:{}};
-  el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; el.qtyValue.textContent=state.sheetQty;
+  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipCounts:{},drinkCounts:{}};
+  el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; 
+  // Drinks included handling
+  if(typeof item.drinks_included==='number' && item.drinks_included>0){
+    if(el.drinksBlock){ el.drinksBlock.style.display=''; }
+    if(el.drinksInfo){ el.drinksInfo.textContent = `Входит: ${item.drinks_included} напиток` + (item.drinks_included===1?'':'а'); }
+    if(el.drinksChoice){ el.drinksChoice.innerHTML=''; }
+    state.select.drinkCounts = {};
+    const drinks = (state.conf.drink_flavors||[]);
+    drinks.forEach(dn=>{
+      state.select.drinkCounts[dn]=0;
+      const row=document.createElement('div'); row.className='opt drink';
+      row.innerHTML = `<span class="nm">${dn}</span><div class="ctr"><button class="mini">−</button><span class="v">0</span><button class="mini">+</button></div>`;
+      const btns=row.querySelectorAll('button.mini'); const lbl=row.querySelector('.v');
+      const update=()=>{ lbl.textContent=state.select.drinkCounts[dn]; const left=item.drinks_included-Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(el.drinksLeftHint){ el.drinksLeftHint.textContent = left>0?`Осталось распределить: ${left}`:`Распределено полностью`; } };
+      btns[0].addEventListener('click',()=>{ if(state.select.drinkCounts[dn]>0){ state.select.drinkCounts[dn]--; update(); }});
+      btns[1].addEventListener('click',()=>{ const sum=Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(sum<item.drinks_included){ state.select.drinkCounts[dn]++; update(); }});
+      if(el.drinksChoice){ el.drinksChoice.appendChild(row); }
+      update();
+    });
+  } else { if(el.drinksBlock){ el.drinksBlock.style.display='none'; } }
+el.qtyValue.textContent=state.sheetQty;
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
@@ -81,7 +101,7 @@ o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select
 
   if(typeof item.dips_included==='number'){
     el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
-    state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
+    state.select.dipQty=0; // el.dipQty.textContent='0'; // el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
 
   
@@ -140,8 +160,8 @@ el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
-el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; el.dipQty.textContent=state.select.dipQty; } };
-el.dipPlus.onclick=()=>{ state.select.dipQty++; el.dipQty.textContent=state.select.dipQty; };
+el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; // el.dipQty.textContent=state.select.dipQty; } };
+el.dipPlus.onclick=()=>{ state.select.dipQty++; // el.dipQty.textContent=state.select.dipQty; };
 
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
@@ -191,7 +211,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
@@ -250,7 +270,7 @@ function makeWAOrderLink(){
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
