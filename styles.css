@@ -84,38 +84,9 @@
 .co-delete{border:1px solid #ffd1d1;background:#fff2f2;border-radius:6px;padding:6px 8px}
 .co-sum{min-width:80px;text-align:right;font-weight:700}
 
-
-/* Flavor option pills with heat scale */
-.opt.flavor{display:flex;align-items:center;gap:8px}
-.opt.flavor .dot{width:12px;height:12px;border-radius:999px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
-.opt.flavor .nm{flex:1}
-.opt.flavor .heat{font-size:14px;opacity:.9}
-.muted{color:#777;font-size:12px}
-
-/* UI fonts */
-:root{--fg:#111;--muted:#6b7280;--brand:#2E7D32}
-html,body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,'Noto Sans',sans-serif}
-#sheetTitle{color:var(--fg);font-weight:600;letter-spacing:.2px}
-#sheetDesc{color:var(--muted);line-height:1.45;margin-top:4px}
-/* Flavor pills equal sizing */
-#flavorOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.opt.flavor{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px}
-.opt.flavor .nm{font-weight:500}
-.opt.flavor .dot{width:12px;height:12px;border-radius:999px;border:1px solid rgba(0,0,0,.08);margin-right:6px}
-.opt.flavor .heat{font-size:12px;opacity:.9}
-/* Dips choice counters */
-#dipsChoice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
-.opt.dip{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px}
-.opt.dip .nm{font-weight:500}
-.opt.dip .ctr{display:flex;align-items:center;gap:8px}
-.opt.dip .ctr .mini{width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff}
-#dipsLeftHint{color:var(--muted);font-size:12px;margin-top:2px}
-
 /* Drinks choice counters */
 #drinksChoice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
 .opt.drink{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px}
 .opt.drink .nm{font-weight:500}
 .opt.drink .ctr{display:flex;align-items:center;gap:8px}
 .opt.drink .ctr .mini{width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff}
-
-#dipsBlock .opt-subrow{display:none!important}

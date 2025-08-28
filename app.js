@@ -17,7 +17,7 @@ coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
 async function loadAll(){
-  const[m,c]=await Promise.all([fetch('menu.json?v=22'),fetch('config.json')]);
+  const[m,c]=await Promise.all([fetch('menu.json?v=23'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
   setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
 }
@@ -51,7 +51,7 @@ function render(){
 }
 
 function openSheet(item){
-  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipCounts:{},drinkCounts:{}};
+  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0};
   el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; 
   // Drinks included handling
   if(typeof item.drinks_included==='number' && item.drinks_included>0){
@@ -65,7 +65,7 @@ function openSheet(item){
       const row=document.createElement('div'); row.className='opt drink';
       row.innerHTML = `<span class="nm">${dn}</span><div class="ctr"><button class="mini">−</button><span class="v">0</span><button class="mini">+</button></div>`;
       const btns=row.querySelectorAll('button.mini'); const lbl=row.querySelector('.v');
-      const update=()=>{ lbl.textContent=state.select.drinkCounts[dn]; const left=item.drinks_included-Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(el.drinksLeftHint){ el.drinksLeftHint.textContent = left>0?`Осталось распределить: ${left}`:`Распределено полностью`; } };
+      const update=()=>{ lbl.textContent=state.select.drinkCounts[dn]; const left=item.drinks_included-Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(el.drinksLeftHint){ el.drinksLeftHint.textContent=left>0?`Осталось распределить: ${left}`:`Распределено полностью`; } };
       btns[0].addEventListener('click',()=>{ if(state.select.drinkCounts[dn]>0){ state.select.drinkCounts[dn]--; update(); }});
       btns[1].addEventListener('click',()=>{ const sum=Object.values(state.select.drinkCounts).reduce((a,b)=>a+b,0); if(sum<item.drinks_included){ state.select.drinkCounts[dn]++; update(); }});
       if(el.drinksChoice){ el.drinksChoice.appendChild(row); }
@@ -76,16 +76,9 @@ el.qtyValue.textContent=state.sheetQty;
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
-    
-(state.conf.cooking_flavors||[]).forEach(fl=>{
-  const o=document.createElement('button');
-  o.className='opt flavor';
-  const name = (typeof fl==='string') ? fl : (fl.name||'');
-  const heat = (typeof fl==='object' && typeof fl.heat==='number') ? fl.heat : 0;
-  const color = (typeof fl==='object' && fl.color) ? fl.color : '';
-  const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
-  o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
-o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
+    (state.conf.cooking_flavors||[]).forEach(fl=>{
+      const o=document.createElement('button'); o.className='opt flavor'; const name=(typeof fl==='string')?fl:(fl.name||''); const heat=(typeof fl==='object'&&typeof fl.heat==='number')?fl.heat:0; const color=(typeof fl==='object'&&fl.color)?fl.color:''; const peppers='🌶'.repeat(Math.max(0,Math.min(3,heat))); o.innerHTML=`<span class=\"dot\" style=\"${color?`background:${color}`:''}\"></span><span class=\"nm\">${name}</span><span class=\"heat\">${peppers}</span>`;
+      o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
         else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(name); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
     }); updateFlavorHint(item);
@@ -101,67 +94,21 @@ o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select
 
   if(typeof item.dips_included==='number'){
     el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
-    state.select.dipQty=0; // el.dipQty.textContent='0'; // el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
+    state.select.dipQty=0; // el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
-
-  
-  // Included dip choice UI
-  if(typeof item.dips_included==='number' && el.dipsChoice){
-    const dips = state.conf.dip_flavors || [];
-    el.dipsChoice.innerHTML='';
-    state.select.dipCounts = {};
-    dips.forEach(dn=>{
-      state.select.dipCounts[dn]=0;
-      const row = document.createElement('div'); row.className='opt dip';
-      row.innerHTML = `<span class="nm">${dn}</span>
-        <span class="ctr">
-          <button class="mini minus" type="button">−</button>
-          <span class="c">0</span>
-          <button class="mini plus" type="button">+</button>
-        </span>`;
-      const minus = row.querySelector('.minus');
-      const plus = row.querySelector('.plus');
-      const cEl = row.querySelector('.c');
-      const getAssigned = ()=>Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
-      minus.onclick = ()=>{
-        const cur = state.select.dipCounts[dn]||0;
-        if(cur>0){ state.select.dipCounts[dn]=cur-1; cEl.textContent = state.select.dipCounts[dn]; }
-        const left=(item.dips_included||0)-getAssigned();
-        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-      };
-      plus.onclick = ()=>{
-        const assigned = getAssigned();
-        if(assigned >= (item.dips_included||0)) return;
-        const cur = state.select.dipCounts[dn]||0;
-        state.select.dipCounts[dn]=cur+1; cEl.textContent = state.select.dipCounts[dn];
-        const left=(item.dips_included||0)-getAssigned();
-        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-      };
-      el.dipsChoice.appendChild(row);
-    });
-    const assigned = Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
-    const left=(item.dips_included||0)-assigned;
-    if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
-  }
 
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
-function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.innerHTML = `Выбрано ${cnt} из ${max}. <span class="muted">🌶 шкала: 0 — неострое, 1 — средняя, 3 — острое.</span>`;
-if(item.dips_included>0){
-  const note = document.createElement('div');
-  note.className='muted';
-  note.textContent='Белый на фото — дип (например, Ранч). Его выбирают отдельно ниже.';
-  el.flavorHint.appendChild(note);
-} }
+function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.textContent=`Выбрано ${cnt} из ${max}`; }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 el.sheetBackdrop.onclick=closeSheet;
 el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
-el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; // el.dipQty.textContent=state.select.dipQty; } };
-el.dipPlus.onclick=()=>{ state.select.dipQty++; // el.dipQty.textContent=state.select.dipQty; };
+// extra dips removed (no UI)
+// extra dips removed (no UI)
 
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
@@ -169,7 +116,7 @@ function addToCart(){
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
   if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
-  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts,extraDipQty:state.select.dipQty}); }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,includedDipBreakdown:state.select.dipCounts||{},includedDrinkBreakdown:state.select.drinkCounts||{},dips_included:it.dips_included||0,extraDipQty:state.select.dipQty}); }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -211,7 +158,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
@@ -270,7 +217,7 @@ function makeWAOrderLink(){
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); } if(c.drinks_included){ extras.push('входит напитков: '+c.drinks_included); const brd=c.includedDrinkBreakdown||{}; const pairsd=Object.keys(brd).filter(k=>brd[k]>0).map(k=>`${k}×${brd[k]}`); if(pairsd.length) extras.push('напитки: '+pairsd.join(', ')); }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;

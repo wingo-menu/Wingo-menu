@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=21" />
-  <script defer src="app.js?v=21"></script>
+  <link rel="stylesheet" href="styles.css?v=23" />
+  <script defer src="app.js?v=23"></script>
 </head>
 <body>
   <header class="app-header">
@@ -53,7 +53,14 @@
           <div class="opt-hint" id="dipsLeftHint"></div>
         </div>
 
-        <div class="qty">
+        <div class="opt-block" id="drinksBlock">
+  <div class="opt-title">Напитки</div>
+  <div class="opt-hint" id="drinksInfo"></div>
+  <div class="options options-chips" id="drinksChoice"></div>
+  <div class="opt-hint" id="drinksLeftHint"></div>
+</div>
+
+<div class="qty">
           <button id="qtyMinus" aria-label="Уменьшить">−</button>
           <span id="qtyValue">1</span>
           <button id="qtyPlus" aria-label="Увеличить">+</button>
@@ -118,7 +125,7 @@
   <script>
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=23').catch(()=>{});
       });
     }
   </script>
