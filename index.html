@@ -9,29 +9,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=22" />
-  <script defer src="app.js?v=22"></script>
+  <link rel="stylesheet" href="styles.css?v=21" />
+  <script defer src="app.js?v=21"></script>
 </head>
 <body>
   <header class="app-header">
     <div class="brand">WINGO CHICKEN</div>
-    <div class="hours" id="hoursState">—</div>
+    <div class="right"><span class="hours" id="hoursState">—</span><button id="geoBtn" class="geo-btn">Проверить доставку</button></div>
   </header>
 
   <div id="geoBanner" class="geo-banner"></div>
 
   <nav class="tabs" id="tabs"></nav>
+  <main id="grid" class="grid"></main>
 
-  <main>
-    <div id="grid" class="grid"></div>
-  </main>
-
-  <!-- Sheet -->
   <div class="sheet" id="sheet" aria-hidden="true">
     <div class="sheet__backdrop" id="sheetBackdrop"></div>
-    <div class="sheet__panel">
+    <div class="sheet__panel" role="dialog" aria-modal="true">
+      <button id="sheetClose" class="sheet__x" aria-label="Закрыть">✕</button>
       <div class="sheet__handle"></div>
-      <button class="sheet__x" id="sheetClose" aria-label="Закрыть">✕</button>
       <div class="sheet__content">
         <img id="sheetImg" class="sheet-img" alt="" />
         <h3 id="sheetTitle"></h3>
@@ -55,6 +51,15 @@
           <div class="opt-hint" id="dipsInfo"></div>
           <div class="options options-chips" id="dipsChoice"></div>
           <div class="opt-hint" id="dipsLeftHint"></div>
+          <div class="opt-subrow">
+            <label class="opt-inline">
+              Доп. дипы:
+              <button class="qtybtn" id="dipMinus">−</button>
+              <span id="dipQty">0</span>
+              <button class="qtybtn" id="dipPlus">+</button>
+              <span class="muted" id="dipPriceView"></span>
+            </label>
+          </div>
         </div>
 
         <div class="qty">
@@ -62,12 +67,11 @@
           <span id="qtyValue">1</span>
           <button id="qtyPlus" aria-label="Увеличить">+</button>
         </div>
-        <button id="addToCart" class="add-btn">Добавить в корзину</button>
+        <button class="add-btn" id="addToCart">Добавить</button>
       </div>
     </div>
   </div>
 
-  <!-- Checkout -->
   <div class="checkout" id="checkout" aria-hidden="true">
     <div class="checkout__backdrop" id="coBackdrop"></div>
     <div class="checkout__panel">
@@ -96,7 +100,7 @@
           </div>
         </div>
 
-        <label><span id="coNoteLabel">Комментарий курьеру</span>
+        <label>Комментарий курьеру
           <textarea id="coNote" rows="3" placeholder="Например: подъезд 2, домофон 23, не звонить..."></textarea>
         </label>
 
@@ -119,11 +123,11 @@
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <!-- build v22 -->
+  <!-- build v19 -->
   <script>
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=22').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
       });
     }
   </script>

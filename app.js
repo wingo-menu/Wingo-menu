@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)], money=v=>'₸'+Math.round(v||0).toLocaleString('ru-RU');
-const hav=(a,b)=>{const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad((b.lat-a.lat)),dLon=toRad((b.lng-a.lng));const s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
+const hav=(a,b)=>{const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLon=toRad(b.lng-a.lng);const s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
 
-const state={items:[],categories:[],cart:JSON.parse(localStorage.getItem('wingo.cart')||'[]'),conf:null,activeCategory:null,geo:JSON.parse(localStorage.getItem('wingo.geo')||'{"status":"unknown","inside":false}'),mode:'delivery'};
+const state={items:[],categories:[],cart:JSON.parse(localStorage.getItem('wingo.cart')||'[]'),activeCategory:null,sheetItem:null,sheetQty:1,select:{flavors:[],garnish:null,dipQty:0},conf:null,geo:{status:'unknown',distanceKm:null,inside:false},mode:'delivery'};
 
 const el={tabs:$('#tabs'),grid:$('#grid'),
 sheet:$('#sheet'),sheetBackdrop:$('#sheetBackdrop'),sheetClose:$('#sheetClose'),sheetImg:$('#sheetImg'),sheetTitle:$('#sheetTitle'),sheetPrice:$('#sheetPrice'),sheetDesc:$('#sheetDesc'),
@@ -12,7 +12,7 @@ qtyMinus:$('#qtyMinus'),qtyPlus:$('#qtyPlus'),qtyValue:$('#qtyValue'),addToCart:
 cartBar:$('#cartBar'),cartOpenArea:$('#cartOpenArea'),cartCount:$('#cartCount'),cartTotal:$('#cartTotal'),openCheckout:$('#openCheckout'),
 checkout:$('#checkout'),coBackdrop:$('#coBackdrop'),coClose:$('#coClose'),
 coName:$('#coName'),coPhone:$('#coPhone'),
-addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),coNote:$('#coNote'),coNoteLabel:$('#coNoteLabel'),
+addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),coNote:$('#coNote'),
 coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
@@ -29,7 +29,7 @@ function setupHours(){
 function buildCategories(){
   const set=new Set(state.items.map(i=>i.category)); state.categories=[...set]; el.tabs.innerHTML='';
   state.categories.forEach((cat,i)=>{
-    const a=document.createElement('a'); a.href='#'; a.textContent=cat; a.className=''+(((state.activeCategory===cat)||(!state.activeCategory&&i===0))?' active':'');
+    const a=document.createElement('a'); a.href='#'; a.textContent=cat; a.className='tab'+((state.activeCategory===cat)||(!state.activeCategory&&i===0)?' active':'');
     a.onclick=e=>{e.preventDefault(); state.activeCategory=cat; render(); $$('#tabs a').forEach(n=>n.classList.toggle('active',n.textContent===cat)); };
     el.tabs.appendChild(a);
   });
@@ -51,20 +51,21 @@ function render(){
 }
 
 function openSheet(item){
-  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipCounts:{}};
+  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0,dipCounts:{}};
   el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; el.qtyValue.textContent=state.sheetQty;
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
-    (state.conf.cooking_flavors||[]).forEach(fl=>{
-      const o=document.createElement('button');
-      o.className='opt flavor';
-      const name = (typeof fl==='string')? fl : (fl.name||'');
-      const heat = (typeof fl==='object' && typeof fl.heat==='number') ? fl.heat : 0;
-      const color = (typeof fl==='object' && fl.color) ? fl.color : '';
-      const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
-      o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
-      o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>-1){ state.select.flavors.splice(i,1); o.classList.remove('active');}
+    
+(state.conf.cooking_flavors||[]).forEach(fl=>{
+  const o=document.createElement('button');
+  o.className='opt flavor';
+  const name = (typeof fl==='string') ? fl : (fl.name||'');
+  const heat = (typeof fl==='object' && typeof fl.heat==='number') ? fl.heat : 0;
+  const color = (typeof fl==='object' && fl.color) ? fl.color : '';
+  const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
+  o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
+o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
         else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(name); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
     }); updateFlavorHint(item);
@@ -80,8 +81,10 @@ function openSheet(item){
 
   if(typeof item.dips_included==='number'){
     el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
+    state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
 
+  
   // Included dip choice UI
   if(typeof item.dips_included==='number' && el.dipsChoice){
     const dips = state.conf.dip_flavors || [];
@@ -89,11 +92,9 @@ function openSheet(item){
     state.select.dipCounts = {};
     dips.forEach(dn=>{
       state.select.dipCounts[dn]=0;
-      const row=document.createElement('div');
-      row.className='opt-inline';
-      row.innerHTML=`
-        <span class="nm" style="min-width:120px">${dn}</span>
-        <span class="qty mini">
+      const row = document.createElement('div'); row.className='opt dip';
+      row.innerHTML = `<span class="nm">${dn}</span>
+        <span class="ctr">
           <button class="mini minus" type="button">−</button>
           <span class="c">0</span>
           <button class="mini plus" type="button">+</button>
@@ -126,24 +127,29 @@ function openSheet(item){
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
-function updateFlavorHint(item){ const max=item.flavors_max||1, n=state.select.flavors.length;
-  el.flavorHint.innerHTML = `${n}/${max} выбрано. <span class="muted">🌶 шкала: 0 — неострое, 1 — средняя, 3 — острое.</span>`;
-}
-
-el.sheetClose.onclick=()=>closeSheet();
-el.sheetBackdrop.onclick=()=>closeSheet();
+function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.innerHTML = `Выбрано ${cnt} из ${max}. <span class="muted">🌶 шкала: 0 — неострое, 1 — средняя, 3 — острое.</span>`;
+if(item.dips_included>0){
+  const note = document.createElement('div');
+  note.className='muted';
+  note.textContent='Белый на фото — дип (например, Ранч). Его выбирают отдельно ниже.';
+  el.flavorHint.appendChild(note);
+} }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
+el.sheetBackdrop.onclick=closeSheet;
+el.sheetClose.onclick=closeSheet;
 
 el.qtyMinus.onclick=()=>{ if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent=state.sheetQty; } };
 el.qtyPlus.onclick=()=>{ state.sheetQty++; el.qtyValue.textContent=state.sheetQty; };
+el.dipMinus.onclick=()=>{ if(state.select.dipQty>0){ state.select.dipQty--; el.dipQty.textContent=state.select.dipQty; } };
+el.dipPlus.onclick=()=>{ state.select.dipQty++; el.dipQty.textContent=state.select.dipQty; };
 
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
-  if(ex){ ex.qty+=state.sheetQty; }
-  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...(state.select.flavors||[])],garnish:state.select.garnish||null,dips_included:it.dips_included||0,dips_breakdown:state.select.dipCounts}); }
+  if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts,extraDipQty:state.select.dipQty}); }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -151,7 +157,7 @@ el.addToCart.onclick=addToCart;
 
 function updateCartBar(){
   const count=state.cart.reduce((a,c)=>a+c.qty,0);
-  const total=state.cart.reduce((a,c)=>a+c.qty*(c.basePrice),0);
+  const total=state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0);
   el.cartCount.textContent=count+' поз.'; el.cartTotal.textContent=money(total);
 }
 el.openCheckout.onclick=()=>openCheckout();
@@ -174,17 +180,8 @@ el.modeSegment.addEventListener('click', (e)=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  if(state.mode==='delivery'){
-    el.deliveryMode.textContent='Режим: Доставка';
-    el.addressGroup.style.display='';
-    if(el.coNoteLabel){ el.coNoteLabel.textContent='Комментарий курьеру'; }
-    if(el.coNote){ el.coNote.placeholder='Например: подъезд 2, домофон 23, не звонить...'; }
-  } else {
-    el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address;
-    el.addressGroup.style.display='none';
-    if(el.coNoteLabel){ el.coNoteLabel.textContent='Комментарий к заказу'; }
-    if(el.coNote){ el.coNote.placeholder='Например: аллергия на орехи, без лука, столовые приборы'; }
-  }
+  if(state.mode==='delivery'){ el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display=''; }
+  else { el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address; el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b=>b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
 }
 
@@ -194,61 +191,71 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const pairs=Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
-    const sum=c.qty*(c.basePrice);
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
+    if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
+    const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn minus" data-k="${c.key}">−</button>
-        <span class="q">${c.qty}</span>
-        <button class="qtybtn plus" data-k="${c.key}">+</button>
-        <span class="s">${money(sum)}</span>
+        <button class="co-qtybtn co-minus" aria-label="минус">−</button>
+        <span>${c.qty}</span>
+        <button class="co-qtybtn co-plus" aria-label="плюс">+</button>
+        <button class="co-delete">Удалить</button>
+        <div class="co-sum">${money(sum)}</div>
       </div>
     </div>`;
   }).join('');
-  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice),0);
-  el.coSummary.innerHTML = lines; el.coTotal.textContent=money(total);
-
-  el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k); if(i>-1){ if(state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1); localStorage.setItem('wingo.cart',JSON.stringify(state.cart)); renderCoSummary(); updateCartBar(); } });
-  el.coSummary.querySelectorAll('.qtybtn.plus').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k); if(i>-1){ state.cart[i].qty++; localStorage.setItem('wingo.cart',JSON.stringify(state.cart)); renderCoSummary(); updateCartBar(); } });
+  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0);
+  el.coSummary.innerHTML = lines; el.coTotal.textContent = money(total);
 }
+el.coSummary.addEventListener('click', (e)=>{
+  const row = e.target.closest('.co-item'); if(!row) return;
+  const key = row.getAttribute('data-key');
+  const item = state.cart.find(x=>x.key===key); if(!item) return;
+  if(e.target.classList.contains('co-minus')){ if(item.qty>1) item.qty--; else state.cart = state.cart.filter(x=>x.key!==key); }
+  else if(e.target.classList.contains('co-plus')){ item.qty++; }
+  else if(e.target.classList.contains('co-delete')){ state.cart = state.cart.filter(x=>x.key!==key); }
+  localStorage.setItem('wingo.cart', JSON.stringify(state.cart));
+  renderCoSummary(); updateCartBar();
+});
 
 function updateGeoUI(){
-  const b=el.geoBanner, g=state.geo;
-  if(g.status==='inside'){ b.className='geo-banner ok'; b.textContent='Вы внутри зоны доставки — доступна доставка.'; }
-  else if(g.status==='outside'){ b.className='geo-banner bad'; b.textContent='Вне зоны доставки — доступен самовывоз.'; }
-  else if(g.status==='denied'){ b.className='geo-banner bad'; b.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
-  else { b.className='geo-banner'; b.textContent=''; }
+  const b=$('#geoBanner');
+  if(state.geo.status==='inside'){ b.className='geo-banner ok'; b.textContent=`Доставляем к вам! Вы в зоне (≈ ${state.geo.distanceKm.toFixed(2)} км от нас)`; }
+  else if(state.geo.status==='outside'){ b.className='geo-banner bad'; b.textContent=`Вне зоны доставки (≈ ${state.geo.distanceKm.toFixed(2)} км). Доступен самовывоз: ${state.conf.pickup.address}`; }
+  else if(state.geo.status==='denied'){ b.className='geo-banner bad'; b.textContent='Геолокация отключена. Можно оформить самовывоз или попробовать ещё раз.'; }
+  else { b.className='geo-banner'; b.style.display='none'; return; }
+  b.style.display='block';
 }
-
 function doGeocheck(){
-  if(!navigator.geolocation){ alert('Геолокация не поддерживается'); return; }
-  el.geoBtn&&(el.geoBtn.disabled=true, el.geoBtn.textContent='Проверяем...');
+  if(!navigator.geolocation){ state.geo.status='denied'; updateGeoUI(); return; }
+  el.geoBtn.disabled=true; el.geoBtn.textContent='Определяем...';
   navigator.geolocation.getCurrentPosition(pos=>{
-    const pt={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    const base=state.conf.delivery_base, radius=state.conf.delivery_radius_km||3;
-    const d=hav(base, pt); state.geo.distanceKm=d; state.geo.inside = d<=radius;
+    const user={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    const center=state.conf.delivery.center; const r=state.conf.delivery.radius_km||1.5;
+    const dist=hav(center,user); state.geo.distanceKm=dist; state.geo.inside=dist<=r;
     state.geo.status=state.geo.inside?'inside':'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
     updateGeoUI();
-    el.geoBtn&&(el.geoBtn.disabled=false, el.geoBtn.textContent='Проверить доставку');
+    el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
-    el.geoBtn&&(el.geoBtn.disabled=false, el.geoBtn.textContent='Проверить доставку');
+    el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
 }
-// el.geoBtn.onclick=doGeocheck; // включишь, если кнопка гео есть в разметке
+el.geoBtn.onclick=doGeocheck;
 
 function makeWAOrderLink(){
   const phone=state.conf.whatsapp_number;
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const pairs=Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
-    const sum=Math.round(c.qty*(c.basePrice));
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
+    if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
+    const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
   }).join('%0A');
-  const total=Math.round(state.cart.reduce((a,c)=>a+c.qty*(c.basePrice),0));
+  const total=Math.round(state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0));
 
   let addr=''; if(state.mode==='delivery'){
     const street=(el.coStreet.value||'').trim();
@@ -257,12 +264,14 @@ function makeWAOrderLink(){
     const apt=(el.coApt.value||'').trim();
     if(!street||!house){
       alert('Пожалуйста, укажите улицу и дом.');
-      throw new Error('address missing');
+      throw new Error('Address street/house required');
     }
-    addr = `ул. ${street}, д. ${house}${floor?`, эт. ${floor}`:''}${apt?`, кв. ${apt}`:''}`;
+    addr=`ул. ${street}, дом ${house}` + (floor?`, этаж ${floor}`:'') + (apt?`, кв. ${apt}`:'');
   }
 
   const name=encodeURIComponent((el.coName.value||'').trim());
+  if(!el.coPhone.value) el.coPhone.value='+7';
+  if(!el.coPhone.value.startsWith('+7')) el.coPhone.value='+7'+el.coPhone.value.replace(/^\+?/,'');
   const phoneText=encodeURIComponent((el.coPhone.value||'').trim());
   const mode= state.mode==='delivery' ? 'Доставка' : ('Самовывоз — '+state.conf.pickup.address);
   const addrEnc=encodeURIComponent(addr);
