@@ -6,8 +6,11 @@
   <title>WINGO CHICKEN — меню и заказ</title>
   <meta name="theme-color" content="#2E7D32" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20" />
-  <script defer src="app.js?v=20"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=21" />
+  <script defer src="app.js?v=21"></script>
 </head>
 <body>
   <header class="app-header">
@@ -46,8 +49,9 @@
         <div class="opt-block" id="dipsBlock">
           <div class="opt-title">Дип-соусы</div>
           <div class="opt-hint" id="dipsInfo"></div>
-          <div id="dipsSelect" class="dips-select"></div>
-          <div class="opt-subrow" id="extraDipsRow">
+          <div class="options options-chips" id="dipsChoice"></div>
+          <div class="opt-hint" id="dipsLeftHint"></div>
+          <div class="opt-subrow">
             <label class="opt-inline">
               Доп. дипы:
               <button class="qtybtn" id="dipMinus">−</button>
@@ -96,7 +100,8 @@
           </div>
         </div>
 
-        <label id="coNoteLabel">Комментарий курьеру<textarea id="coNote" rows="3" placeholder="Например: подъезд 2, домофон 23, не звонить..."></textarea>
+        <label>Комментарий курьеру
+          <textarea id="coNote" rows="3" placeholder="Например: подъезд 2, домофон 23, не звонить..."></textarea>
         </label>
 
         <div class="summary">
@@ -110,7 +115,7 @@
   </div>
 
   <div class="cartbar" id="cartBar">
-    <div class="cartbar__summary" id="cartOpenArea" role="button" tabindex="0">
+    <div class="cartbar__summary" id="cartOpenArea">
       <span class="cartbar__icon" aria-hidden="true"></span>
       <span class="cartbar__label">Корзина</span> ·
       <span id="cartCount">0 поз.</span> · <span id="cartTotal">₸0</span>
@@ -122,7 +127,7 @@
   <script>
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=20').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
       });
     }
   </script>

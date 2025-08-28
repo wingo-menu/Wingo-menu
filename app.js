@@ -17,7 +17,7 @@ coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
 
 async function loadAll(){
-  const[m,c]=await Promise.all([fetch('menu.json?v=21'),fetch('config.json')]);
+  const[m,c]=await Promise.all([fetch('menu.json?v=22'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
   setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
 }
@@ -51,7 +51,7 @@ function render(){
 }
 
 function openSheet(item){
-  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0};
+  state.sheetItem=item; state.sheetQty=1; state.select={flavors:[],garnish:null,dipQty:0,dipCounts:{}};
   el.sheetImg.src=item.image||'images/placeholder.png'; el.sheetTitle.textContent=item.name; el.sheetPrice.textContent=money(item.price); el.sheetDesc.textContent=item.description||''; el.qtyValue.textContent=state.sheetQty;
 
   if(item.flavors_max){
@@ -84,6 +84,46 @@ o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select
     state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
   } else { el.dipsBlock.style.display='none'; }
 
+  
+  // Included dip choice UI
+  if(typeof item.dips_included==='number' && el.dipsChoice){
+    const dips = state.conf.dip_flavors || [];
+    el.dipsChoice.innerHTML='';
+    state.select.dipCounts = {};
+    dips.forEach(dn=>{
+      state.select.dipCounts[dn]=0;
+      const row = document.createElement('div'); row.className='opt dip';
+      row.innerHTML = `<span class="nm">${dn}</span>
+        <span class="ctr">
+          <button class="mini minus" type="button">−</button>
+          <span class="c">0</span>
+          <button class="mini plus" type="button">+</button>
+        </span>`;
+      const minus = row.querySelector('.minus');
+      const plus = row.querySelector('.plus');
+      const cEl = row.querySelector('.c');
+      const getAssigned = ()=>Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
+      minus.onclick = ()=>{
+        const cur = state.select.dipCounts[dn]||0;
+        if(cur>0){ state.select.dipCounts[dn]=cur-1; cEl.textContent = state.select.dipCounts[dn]; }
+        const left=(item.dips_included||0)-getAssigned();
+        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
+      };
+      plus.onclick = ()=>{
+        const assigned = getAssigned();
+        if(assigned >= (item.dips_included||0)) return;
+        const cur = state.select.dipCounts[dn]||0;
+        state.select.dipCounts[dn]=cur+1; cEl.textContent = state.select.dipCounts[dn];
+        const left=(item.dips_included||0)-getAssigned();
+        if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
+      };
+      el.dipsChoice.appendChild(row);
+    });
+    const assigned = Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0);
+    const left=(item.dips_included||0)-assigned;
+    if(el.dipsLeftHint) el.dipsLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
+  }
+
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
@@ -109,7 +149,7 @@ function addToCart(){
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
   if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
-  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,extraDipQty:state.select.dipQty}); }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts,extraDipQty:state.select.dipQty}); }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -151,7 +191,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
@@ -210,7 +250,7 @@ function makeWAOrderLink(){
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
+    if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
