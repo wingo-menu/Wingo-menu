@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=21" />
-  <script defer src="app.js?v=21"></script>
+  <link rel="stylesheet" href="styles.css?v=22" />
+  <script defer src="app.js?v=22"></script>
 </head>
 <body>
   <header class="app-header">
@@ -51,16 +51,14 @@
           <div class="opt-hint" id="dipsInfo"></div>
           <div class="options options-chips" id="dipsChoice"></div>
           <div class="opt-hint" id="dipsLeftHint"></div>
-          <div class="opt-subrow">
-            <label class="opt-inline">
-              Доп. дипы:
-              <button class="qtybtn" id="dipMinus">−</button>
-              <span id="dipQty">0</span>
-              <button class="qtybtn" id="dipPlus">+</button>
-              <span class="muted" id="dipPriceView"></span>
-            </label>
-          </div>
         </div>
+        <div class="opt-block" id="drinksBlock">
+          <div class="opt-title">Напитки</div>
+          <div class="opt-hint" id="drinksInfo"></div>
+          <div class="options options-chips" id="drinksChoice"></div>
+          <div class="opt-hint" id="drinksLeftHint"></div>
+        </div>
+
 
         <div class="qty">
           <button id="qtyMinus" aria-label="Уменьшить">−</button>
@@ -123,11 +121,11 @@
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <!-- build v19 -->
+  <!-- build v22 -->
   <script>
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=20').catch(()=>{});
       });
     }
   </script>
