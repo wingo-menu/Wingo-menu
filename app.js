@@ -15,16 +15,9 @@ coName:$('#coName'),coPhone:$('#coPhone'),
 addressGroup:$('#addressGroup'),coStreet:$('#coStreet'),coHouse:$('#coHouse'),coFloor:$('#coFloor'),coApt:$('#coApt'),coNote:$('#coNote'),
 coSummary:$('#coSummary'),coTotal:$('#coTotal'),coWhatsApp:$('#coWhatsApp'),
 hoursState:$('#hoursState'),geoBtn:$('#geoBtn'),geoBanner:$('#geoBanner'),deliveryMode:$('#deliveryMode'),modeSegment:$('#modeSegment')};
-// v20 helpers for dips selection
-function listAvailableDips(){
-  // Take dips from menu items category
-  return state.items.filter(i=>i.category==='СОУСЫ (ДИПЫ)').map(i=>({id:i.id,name:i.name}));
-}
-function totalSelectedIncludedDips(sel){ return Object.values(sel||{}).reduce((a,b)=>a+(b||0),0); }
-
 
 async function loadAll(){
-  const[m,c]=await Promise.all([fetch('menu.json?v=19'),fetch('config.json')]);
+  const[m,c]=await Promise.all([fetch('menu.json?v=21'),fetch('config.json')]);
   state.items=(await m.json()).items||[]; state.conf=await c.json();
   setupHours(); buildCategories(); render(); updateCartBar(); updateGeoUI();
 }
@@ -63,10 +56,17 @@ function openSheet(item){
 
   if(item.flavors_max){
     el.flavorBlock.style.display=''; el.flavorMax.textContent=item.flavors_max; el.flavorOptions.innerHTML='';
-    (state.conf.cooking_flavors||[]).forEach(fl=>{
-      const o=document.createElement('button'); o.className='opt'; o.textContent=fl;
-      o.onclick=()=>{const i=state.select.flavors.indexOf(fl); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
-        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(fl); o.classList.add('active');} updateFlavorHint(item); };
+    
+(state.conf.cooking_flavors||[]).forEach(fl=>{
+  const o=document.createElement('button');
+  o.className='opt flavor';
+  const name = (typeof fl==='string') ? fl : (fl.name||'');
+  const heat = (typeof fl==='object' && typeof fl.heat==='number') ? fl.heat : 0;
+  const color = (typeof fl==='object' && fl.color) ? fl.color : '';
+  const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
+  o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
+o.onclick=()=>{const i=state.select.flavors.indexOf(name); if(i>=0){state.select.flavors.splice(i,1); o.classList.remove('active');}
+        else if(state.select.flavors.length<item.flavors_max){state.select.flavors.push(name); o.classList.add('active');} updateFlavorHint(item); };
       el.flavorOptions.appendChild(o);
     }); updateFlavorHint(item);
   } else { el.flavorBlock.style.display='none'; }
@@ -79,55 +79,21 @@ function openSheet(item){
     });
   } else { el.garnishBlock.style.display='none'; }
 
-  
-if(typeof item.dips_included==='number'){
-    el.dipsBlock.style.display='';
-    // Build included dips selector
-    el.dipsInfo.textContent = 'Входит дипов: ' + item.dips_included + (item.dips_included===1?'':' шт.');
-    const dips = listAvailableDips();
-    state.select.includedDips = {};
-    const container = document.getElementById('dipsSelect');
-    if(container){ container.innerHTML=''; }
-    dips.forEach(d=>{
-      state.select.includedDips[d.name]=0;
-      const row=document.createElement('div'); row.className='dip-row';
-      const name=document.createElement('div'); name.className='dip-name'; name.textContent=d.name;
-      const ctr=document.createElement('div'); ctr.className='dip-ctr';
-      const minus=document.createElement('button'); minus.className='qtybtn'; minus.textContent='−';
-      const qty=document.createElement('span'); qty.textContent='0'; qty.setAttribute('data-dip',d.name);
-      const plus=document.createElement('button'); plus.className='qtybtn'; plus.textContent='+';
-      minus.onclick=()=>{
-        const cur=state.select.includedDips[d.name]||0; if(cur>0){ state.select.includedDips[d.name]=cur-1; qty.textContent = String(state.select.includedDips[d.name]); updateDipsHint(item); }
-      };
-      plus.onclick=()=>{
-        const used=totalSelectedIncludedDips(state.select.includedDips);
-        if(used<item.dips_included){ state.select.includedDips[d.name]=(state.select.includedDips[d.name]||0)+1; qty.textContent = String(state.select.includedDips[d.name]); updateDipsHint(item); }
-      };
-      ctr.appendChild(minus); ctr.appendChild(qty); ctr.appendChild(plus);
-      row.appendChild(name); row.appendChild(ctr);
-      if(container){ container.appendChild(row); }
-    });
-    // Hide extra dips row per requirement
-    const extraRow=document.getElementById('extraDipsRow'); if(extraRow){ extraRow.style.display='none'; }
-    state.select.dipQty = 0; if(el.dipQty) el.dipQty.textContent='0';
-    if(el.dipPriceView) el.dipPriceView.textContent='';
-    updateDipsHint(item);
-  } else {
-    el.dipsBlock.style.display='none';
-  }
-    
+  if(typeof item.dips_included==='number'){
+    el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
+    state.select.dipQty=0; el.dipQty.textContent='0'; el.dipPriceView.textContent=state.conf.dip_unit_price?`+ ${money(state.conf.dip_unit_price)} за шт.`:'';
+  } else { el.dipsBlock.style.display='none'; }
 
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
-
-function updateDipsHint(item){
-  if(typeof item.dips_included!=='number') return;
-  const used = totalSelectedIncludedDips(state.select.includedDips||{});
-  const remain = Math.max(0, item.dips_included - used);
-  el.dipsInfo.textContent = 'Выберите дипы: осталось ' + remain + ' из ' + item.dips_included;
-}
-function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.textContent=`Выбрано ${cnt} из ${max}`; }
+function updateFlavorHint(item){ const max=item.flavors_max||1, cnt=state.select.flavors.length; el.flavorHint.innerHTML = `Выбрано ${cnt} из ${max}. <span class="muted">🌶 шкала: 0 — неострое, 1 — средняя, 3 — острое.</span>`;
+if(item.dips_included>0){
+  const note = document.createElement('div');
+  note.className='muted';
+  note.textContent='Белый на фото — дип (например, Ранч). Его выбирают отдельно ниже.';
+  el.flavorHint.appendChild(note);
+} }
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 el.sheetBackdrop.onclick=closeSheet;
 el.sheetClose.onclick=closeSheet;
@@ -140,25 +106,10 @@ el.dipPlus.onclick=()=>{ state.select.dipQty++; el.dipQty.textContent=state.sele
 function addToCart(){
   const it=state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
-  // Validate included dips selection
-  if(typeof it.dips_included==='number'){
-    const used = totalSelectedIncludedDips(state.select.includedDips||{});
-    if(used !== it.dips_included){ alert('Пожалуйста, распределите все входящие дипы'); return; }
-  }
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
-  if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; 
-    // merge included dips
-    if(state.select.includedDips){
-      ex.includedDips = ex.includedDips || {};
-      for(const [name,q] of Object.entries(state.select.includedDips)){
-        ex.includedDips[name]=(ex.includedDips[name]||0)+q;
-      }
-    }
-  }
-  else {
-    state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,flavors:(state.select.flavors||[]),garnish:state.select.garnish||null,dips_included:it.dips_included||0,includedDips:(state.select.includedDips||{}),extraDipQty:state.select.dipQty,qty:state.sheetQty});
-  }
+  if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,extraDipQty:state.select.dipQty}); }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -171,11 +122,6 @@ function updateCartBar(){
 }
 el.openCheckout.onclick=()=>openCheckout();
 el.cartOpenArea.onclick=()=>openCheckout();
-
-// accessibility for cart open area
-el.cartOpenArea.setAttribute('role','button'); el.cartOpenArea.setAttribute('tabindex','0');
-el.cartOpenArea.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); openCheckout(); } });
-
 
 function openCheckout(){
   state.mode = state.geo.inside ? 'delivery' : 'pickup';
@@ -194,15 +140,8 @@ el.modeSegment.addEventListener('click', (e)=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  if(state.mode==='delivery'){
-    el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display='';
-    const lbl=document.getElementById('coNoteLabel'); if(lbl){ lbl.childNodes[0].nodeValue='Комментарий курьеру'; }
-    if(el.coNote){ el.coNote.placeholder='Например: подъезд 2, домофон 23, не звонить...'; }
-  } else {
-    el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address; el.addressGroup.style.display='none';
-    const lbl=document.getElementById('coNoteLabel'); if(lbl){ lbl.childNodes[0].nodeValue='Комментарий к заказу'; }
-    if(el.coNote){ el.coNote.placeholder='Например: аллергия, без лука, не остро, соус отдельно...'; }
-  }
+  if(state.mode==='delivery'){ el.deliveryMode.textContent='Режим: Доставка'; el.addressGroup.style.display=''; }
+  else { el.deliveryMode.textContent='Режим: Самовывоз — '+state.conf.pickup.address; el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b=>b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
 }
 
@@ -212,11 +151,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){
-      const dipParts = [];
-      if(c.includedDips){ for(const [name,q] of Object.entries(c.includedDips)){ if(q>0) dipParts.push(name+'×'+q); } }
-      if(dipParts.length){ extras.push('дипы: '+dipParts.join(', ')); }
-    }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
     return `<div class="co-item" data-key="${c.key}">
@@ -275,7 +210,7 @@ function makeWAOrderLink(){
   const lines=state.cart.map(c=>{
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.dips_included){ const dipParts=[]; if(c.includedDips){ for(const [name,q] of Object.entries(c.includedDips)){ if(q>0) dipParts.push(name+'×'+q); } } if(dipParts.length){ extras.push('дипы: '+dipParts.join(', ')); } }
+    if(c.dips_included) extras.push('входит дипов: '+c.dips_included);
     if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
     const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
