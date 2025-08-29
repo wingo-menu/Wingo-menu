@@ -99,6 +99,7 @@ function ensureNoticeVisible(elm) {
   const ho = getHeaderOffsetPx();
   if (ho) {
     setTimeout(() => {
+      // instant, чтобы не было двойной анимации
       window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' });
     }, 250);
   }
@@ -123,7 +124,8 @@ async function loadAll() {
 
   // сформируем варианты напитков из раздела меню "НАПИТКИ"
   try {
-    state.drinkOptions = state.items.filter(i => (i.category || '').toLowerCase() === 'напитки')
+    state.drinkOptions = state.items
+      .filter(i => (i.category || '').toLowerCase() === 'напитки')
       .map(i => i.name)
       .filter(Boolean);
   } catch(_) { state.drinkOptions = []; }
@@ -188,14 +190,21 @@ function renderGrid(){
 
 // ─── Напитки: разбор и UI ─────────────────────────────────────────────────────
 function getIncludedDrinksCount(item){
+  // 1) Жёсткие правила на конкретные позиции (надёжность и единообразие)
+  if (item?.id === 'combo-wings-6') return 1;
+  if (item?.id === 'combo-tenders-5') return 1;
+  if (item?.id === 'duo-wings-15') return 2;
+
+  // 2) Универсальная логика по описанию
   const t = (item.description || '').toLowerCase();
-  const m = t.match(/(\d+)\s*напит(ок|ка|ков)/i);
+  // сначала попробуем «число + напиток/напитка/напитков»
+  const m = t.match(/(\d+)\s*напит(?:ок|ка|ков)/i);
   if (m) {
     const n = parseInt(m[1], 10);
-    return Number.isFinite(n) ? Math.max(1, n) : 0;
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  // если явно встречается "напиток" без числа — считаем как 1
-  if (/\bнапиток\b/i.test(t)) return 1;
+  // fallback: если есть слово «напиток» без числа — считаем как 1
+  if (t.includes('напиток')) return 1;
   return 0;
 }
 
@@ -647,10 +656,12 @@ el.geoBtn && (el.geoBtn.onclick = () => {
     state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
     updateGeoUI();
+    // показать баннер, даже если пользователь внизу
     ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
+    // гарантируем видимость сообщения об ошибке/отказе
     ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
