@@ -32,31 +32,15 @@
 /* зелёный крестик закрыть */
 .sheet__x{position:absolute;right:10px;top:10px;background:#2E7D32;color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-weight:900;line-height:32px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
-/* компактные чипсы */
+/* красивые чипсы */
 .options{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 8px}
-.options-chips .opt{
-  padding:8px 10px;
-  border-radius:10px;
-  border:1.5px solid #e3e3e3;
-  background:#fcfcfc;
-  font-weight:600;
-  font-size:13px;
-  line-height:1;
-}
+.options-chips .opt{padding:10px 14px;border-radius:14px;border:1.5px solid #e3e3e3;background:#fcfcfc;font-weight:600}
 .opt.active{border-color:var(--green);background:#eef6ee;box-shadow:inset 0 0 0 1px rgba(46,125,50,.15)}
 .opt-title{font-weight:700;margin-top:8px}
 .opt-hint{font-size:12px;color:var(--muted);margin-top:-2px}
 .opt-inline{display:flex;align-items:center;gap:8px}
 .opt-subrow{margin-top:6px}
 
-/* компактные счётчики для распределения */
-#dipsChoice, #drinkChoice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
-.opt.dip, .opt.drink{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid rgba(0,0,0,.08);border-radius:10px;background:#fff}
-.opt .nm{font-weight:500}
-.opt .ctr{display:flex;align-items:center;gap:6px}
-.opt .ctr .mini{width:26px;height:26px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff;font-weight:800}
-
-/* количество и добавление */
 .qty{display:flex;align-items:center;gap:12px;margin:8px 0}
 .qty button,.qtybtn{width:36px;height:36px;border-radius:50%;border:1px solid #e6e6e6;background:#f7f7f7;font-weight:800}
 .add-btn{width:100%;padding:12px 14px;background:#2E7D32;color:#fff;border:none;border-radius:12px;font-weight:800}
@@ -87,7 +71,6 @@
   .address-grid{grid-template-columns:1fr 1fr}
   #coStreet{grid-column:1 / -1}
 }
-
 /* сегмент */
 .segment{display:flex;gap:6px}
 .seg{flex:1 1 auto;padding:10px 12px;border:1px solid #e6e6e6;background:#f9f9f9;border-radius:999px;font-weight:700}
@@ -101,16 +84,29 @@
 .co-delete{border:1px solid #ffd1d1;background:#fff2f2;border-radius:6px;padding:6px 8px}
 .co-sum{min-width:80px;text-align:right;font-weight:700}
 
+
+/* Flavor option pills with heat scale */
+.opt.flavor{display:flex;align-items:center;gap:8px}
+.opt.flavor .dot{width:12px;height:12px;border-radius:999px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.opt.flavor .nm{flex:1}
+.opt.flavor .heat{font-size:14px;opacity:.9}
+.muted{color:#777;font-size:12px}
+
 /* UI fonts */
 :root{--fg:#111;--muted:#6b7280;--brand:#2E7D32}
 html,body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,'Noto Sans',sans-serif}
 #sheetTitle{color:var(--fg);font-weight:600;letter-spacing:.2px}
 #sheetDesc{color:var(--muted);line-height:1.45;margin-top:4px}
-
 /* Flavor pills equal sizing */
 #flavorOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.opt.flavor{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid rgba(0,0,0,.08);border-radius:10px;background:#fff}
+.opt.flavor{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px}
 .opt.flavor .nm{font-weight:500}
-.opt.flavor .dot{width:10px;height:10px;border-radius:999px;border:1px solid rgba(0,0,0,.08);margin-right:6px}
+.opt.flavor .dot{width:12px;height:12px;border-radius:999px;border:1px solid rgba(0,0,0,.08);margin-right:6px}
 .opt.flavor .heat{font-size:12px;opacity:.9}
-.muted{color:#777;font-size:12px}
+/* Dips choice counters */
+#dipsChoice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
+.opt.dip{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px}
+.opt.dip .nm{font-weight:500}
+.opt.dip .ctr{display:flex;align-items:center;gap:8px}
+.opt.dip .ctr .mini{width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff}
+#dipsLeftHint{color:var(--muted);font-size:12px;margin-top:2px}
