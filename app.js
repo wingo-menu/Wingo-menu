@@ -82,7 +82,7 @@ const el = {
   modeSegment: $('#modeSegment')
 };
 
-// ─── ДОБАВЛЕНО: аккуратная прокрутка к уведомлению ────────────────────────────
+// ─── Аккуратная прокрутка к уведомлению ───────────────────────────────────────
 function getHeaderOffsetPx() {
   const header = document.querySelector('.header, header');
   if (!header) return 0;
@@ -451,18 +451,20 @@ function renderCoSummary(){
   });
 }
 
-// ─── ДОБАВЛЕНО: формат текста в баннере гео, с расстоянием и адресом ──────────
+// ─── Формат текста в баннере гео (с расстоянием, адресом и самовывозом) ──────
 function updateGeoUI(){
   const b = el.geoBanner, g = state.geo;
   const d = (typeof g.distanceKm === 'number' && isFinite(g.distanceKm)) ? g.distanceKm : null;
   const dStr = d !== null ? ` — расстояние: ${d.toFixed(1)} км` : '';
+
   if(g.status==='inside'){
     b.className='geo-banner ok';
     b.textContent=`Доступна доставка с улицы Балкантау 94${dStr}.`;
   }
   else if(g.status==='outside'){
     b.className='geo-banner bad';
-    b.textContent=`Доставка недоступна${dStr} (за пределами зоны).`;
+    const pickupAddr = state.conf.pickup?.address || '';
+    b.textContent=`Доставка недоступна${dStr} (за пределами зоны), но доступен самовывоз${pickupAddr ? ' — ' + pickupAddr : ''}.`;
   }
   else if(g.status==='denied'){
     b.className='geo-banner bad';
@@ -488,15 +490,13 @@ el.geoBtn && (el.geoBtn.onclick = () => {
     state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
     updateGeoUI();
-    // ─── ДОБАВЛЕНО: после проверки — показать баннер, даже если пользователь внизу ───
+    // показать баннер, даже если пользователь внизу
     ensureNoticeVisible(el.geoBanner);
-    // ──────────────────────────────────────────────────────────────────────────────
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
-    // ─── ДОБАВЛЕНО: гарантируем видимость сообщения об ошибке/отказе ─────────────
+    // гарантируем видимость сообщения об ошибке/отказе
     ensureNoticeVisible(el.geoBanner);
-    // ──────────────────────────────────────────────────────────────────────────────
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
 });
