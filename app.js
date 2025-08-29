@@ -21,8 +21,9 @@ const state = {
   mode: 'delivery',
   sheetItem: null,
   sheetQty: 1,
-  // ТОЛЬКО входящие дипы (без доп. дипов)
-  select: { flavors: [], garnish: null, drink: null, dipCounts: {} }
+  // ТОЛЬКО входящие дипы (без доп. дипов) + напитки
+  select: { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} },
+  drinkOptions: [] // формируем из раздела "НАПИТКИ" меню
 };
 
 const el = {
@@ -98,7 +99,6 @@ function ensureNoticeVisible(elm) {
   const ho = getHeaderOffsetPx();
   if (ho) {
     setTimeout(() => {
-      // instant, чтобы не было двойной анимации
       window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' });
     }, 250);
   }
@@ -120,6 +120,13 @@ async function loadAll() {
     alert('Ошибка загрузки конфигурации. Проверьте, что config.json и menu.json — валидный JSON (без комментариев).');
     return;
   }
+
+  // сформируем варианты напитков из раздела меню "НАПИТКИ"
+  try {
+    state.drinkOptions = state.items.filter(i => (i.category || '').toLowerCase() === 'напитки')
+      .map(i => i.name)
+      .filter(Boolean);
+  } catch(_) { state.drinkOptions = []; }
 
   setupHours();
   buildCategories();
@@ -179,11 +186,128 @@ function renderGrid(){
   el.grid.append(frag);
 }
 
+// ─── Напитки: разбор и UI ─────────────────────────────────────────────────────
+function getIncludedDrinksCount(item){
+  const t = (item.description || '').toLowerCase();
+  const m = t.match(/(\d+)\s*напит(ок|ка|ков)/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    return Number.isFinite(n) ? Math.max(1, n) : 0;
+  }
+  // если явно встречается "напиток" без числа — считаем как 1
+  if (/\bнапиток\b/i.test(t)) return 1;
+  return 0;
+}
+
+function removePrevDrinkBlock(){
+  const prev = document.getElementById('drinkBlock');
+  if (prev) prev.remove();
+}
+
+function buildDrinkUI(item){
+  removePrevDrinkBlock();
+
+  const count = getIncludedDrinksCount(item);
+  if (!count) { state.select.drink = null; state.select.drinkCounts = {}; return; }
+
+  const options = state.drinkOptions || [];
+  if (!options.length) return;
+
+  const block = document.createElement('div');
+  block.id = 'drinkBlock';
+  block.className = 'section';
+
+  const title = document.createElement('div');
+  title.className = 'section-title';
+  title.textContent = 'Напиток';
+  block.appendChild(title);
+
+  // 1 напиток — как гарнир (переключатели)
+  if (count === 1) {
+    const wrap = document.createElement('div');
+    wrap.id = 'drinkOptions';
+    block.appendChild(wrap);
+
+    options.forEach((name, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'opt' + (idx===0 ? ' active' : '');
+      btn.textContent = name;
+      if (idx===0) state.select.drink = name;
+      btn.onclick = () => {
+        state.select.drink = name;
+        [...wrap.children].forEach(n => n.classList.toggle('active', n===btn));
+      };
+      wrap.appendChild(btn);
+    });
+  } else {
+    // >=2 напитков — счётчики (как для дипов)
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    block.appendChild(hint);
+
+    const list = document.createElement('div');
+    list.id = 'drinkChoice';
+    block.appendChild(list);
+
+    state.select.drink = null;
+    state.select.drinkCounts = {};
+    const sumAssigned = () => Object.values(state.select.drinkCounts).reduce((a,b)=>a+(b||0),0);
+    const setHint = () => {
+      const left = count - sumAssigned();
+      hint.textContent = left > 0 ? `Осталось выбрать: ${left}` : 'Готово';
+    };
+
+    options.forEach(name => {
+      state.select.drinkCounts[name] = 0;
+      const row = document.createElement('div');
+      row.className = 'dip-row'; // уже стилизовано под строки с контролами
+      row.innerHTML = `
+        <div class="dip-name">${name}</div>
+        <div class="dip-ctr">
+          <button class="dip-btn minus" type="button" aria-label="Уменьшить">−</button>
+          <span class="dip-count">0</span>
+          <button class="dip-btn plus" type="button" aria-label="Увеличить">+</button>
+        </div>`;
+      const minus = row.querySelector('.minus');
+      const plus = row.querySelector('.plus');
+      const cEl = row.querySelector('.dip-count');
+
+      const refresh = () => {
+        const v = state.select.drinkCounts[name] || 0;
+        cEl.textContent = v;
+        row.classList.toggle('active', v>0);
+        setHint();
+      };
+      minus.onclick = () => {
+        const cur = state.select.drinkCounts[name] || 0;
+        if (cur > 0) state.select.drinkCounts[name] = cur - 1;
+        refresh();
+      };
+      plus.onclick = () => {
+        if (sumAssigned() >= count) return;
+        state.select.drinkCounts[name] = (state.select.drinkCounts[name] || 0) + 1;
+        refresh();
+      };
+      refresh();
+      list.appendChild(row);
+    });
+    setHint();
+  }
+
+  // вставим блок перед дипами, если они есть; иначе — в конец модалки
+  if (el.dipsBlock && el.dipsBlock.parentNode) {
+    el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock);
+  } else {
+    el.sheet.appendChild(block);
+  }
+}
+// ───────────────────────────────────────────────────────────────────────────────
+
 // карточка
 function openSheet(item){
   state.sheetItem = item;
   state.sheetQty = 1;
-  state.select = { flavors: [], garnish: null, drink: null, dipCounts: {} };
+  state.select = { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} };
 
   el.sheetImg.src = item.image || 'images/placeholder.png';
   el.sheetTitle.textContent = item.name;
@@ -244,63 +368,8 @@ function openSheet(item){
     el.garnishBlock.style.display='none';
   }
 
-  // ─── Напиток: показываем только там, где он предусмотрен ─────────────────────
-  const isDrinkItem =
-    item?.drink === true ||
-    item?.includes_drink === true ||
-    (typeof item?.drink_included === 'number' ? item.drink_included > 0 : (item?.drink_included === true)) ||
-    Array.isArray(item?.drinks) ||
-    (item?.drink && Array.isArray(item.drink.options));
-
-  const drinkOptionsData = (
-    (item?.drink && Array.isArray(item.drink.options) && item.drink.options) ||
-    (Array.isArray(item?.drinks) && item.drinks) ||
-    (Array.isArray(state.conf?.drink_options) && state.conf.drink_options) ||
-    (Array.isArray(state.conf?.drinks) && state.conf.drinks) ||
-    (Array.isArray(state.conf?.beverages) && state.conf.beverages) ||
-    []
-  )
-  .map(x => typeof x === 'string' ? x : (x?.name || ''))
-  .filter(Boolean);
-
-  // удалить старый блок, если он был
-  const prevDrinkBlock = document.getElementById('drinkBlock');
-  if (prevDrinkBlock) prevDrinkBlock.remove();
-
-  if (isDrinkItem && drinkOptionsData.length) {
-    const block = document.createElement('div');
-    block.id = 'drinkBlock';
-    block.className = 'section';
-
-    const title = document.createElement('div');
-    title.className = 'section-title';
-    title.textContent = 'Напиток';
-    block.appendChild(title);
-
-    const wrap = document.createElement('div');
-    wrap.id = 'drinkOptions';
-    block.appendChild(wrap);
-
-    drinkOptionsData.forEach((dName, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'opt' + (idx===0 ? ' active' : '');
-      btn.textContent = dName;
-      if (idx===0) state.select.drink = dName;
-      btn.onclick = () => {
-        state.select.drink = dName;
-        [...wrap.children].forEach(n => n.classList.toggle('active', n===btn));
-      };
-      wrap.appendChild(btn);
-    });
-
-    // вставляем перед блоком дипов, если он есть; иначе — в конец модалки
-    if (el.dipsBlock && el.dipsBlock.parentNode) {
-      el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock);
-    } else {
-      el.sheet.appendChild(block);
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────────
+  // НАПИТКИ (если включены в это блюдо)
+  buildDrinkUI(item);
 
   // ВХОДЯЩИЕ дипы (распределение по счётчикам)
   if(typeof item.dips_included === 'number'){
@@ -398,14 +467,23 @@ el.addToCart.onclick = () => {
   const it = state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
 
+  // ключ учитывает напитки (строка для 1шт или расклад для 2+)
+  const drinkKeyPart = (() => {
+    if (state.select.drink) return state.select.drink;
+    const list = Object.entries(state.select.drinkCounts || {}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`).join(',');
+    return list || '';
+  })();
+
   const key = [
     it.id||it.name,
     (state.select.flavors||[]).join('+'),
     state.select.garnish||'',
-    state.select.drink||''
+    drinkKeyPart
   ].join('|');
 
   const ex = state.cart.find(c => c.key === key);
+
+  const drinks_included = getIncludedDrinksCount(it);
   const itemPayload = {
     key,
     id: it.id || it.name,
@@ -414,11 +492,15 @@ el.addToCart.onclick = () => {
     qty: state.sheetQty,
     flavors: [...(state.select.flavors||[])],
     garnish: state.select.garnish || null,
-    drink: state.select.drink || null,
+    // напитки
+    drinks_included,
+    drink: state.select.drink || null, // для 1шт
+    drinks_breakdown: state.select.drinkCounts || null, // для 2+
     // только ВХОДЯЩИЕ дипы
     dips_included: it.dips_included || 0,
     dips_breakdown: state.select.dipCounts
   };
+
   if(ex){ ex.qty += state.sheetQty; }
   else { state.cart.push(itemPayload); }
 
@@ -476,7 +558,16 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.drink) extras.push('напиток: '+c.drink);
+
+    // напитки
+    if (c.drinks_included > 1) {
+      const pairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
+      if (pairs.length) extras.push('напитки: '+pairs.join(', '));
+      else extras.push('напитки: выбрать при звонке');
+    } else if (c.drinks_included === 1 && c.drink) {
+      extras.push('напиток: '+c.drink);
+    }
+
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
@@ -556,12 +647,10 @@ el.geoBtn && (el.geoBtn.onclick = () => {
     state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
     updateGeoUI();
-    // показать баннер, даже если пользователь внизу
     ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
-    // гарантируем видимость сообщения об ошибке/отказе
     ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
@@ -574,7 +663,15 @@ function makeWAOrderLink(){
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
-    if(c.drink) extras.push('напиток: '+c.drink);
+
+    if (c.drinks_included > 1) {
+      const pairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
+      if (pairs.length) extras.push('напитки: '+pairs.join(', '));
+      else extras.push('напитки: выбрать при звонке');
+    } else if (c.drinks_included === 1 && c.drink) {
+      extras.push('напиток: '+c.drink);
+    }
+
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
