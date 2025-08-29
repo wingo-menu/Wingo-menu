@@ -7,7 +7,7 @@ const money = v => '₸' + Math.round(v || 0).toLocaleString('ru-RU');
 const hav = (a, b) => {
   const R = 6371, toRad = x => x * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(Math.abs(dLon)/2)**2;
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
   return 2 * R * Math.asin(Math.sqrt(s));
 };
 
@@ -244,19 +244,33 @@ function openSheet(item){
     el.garnishBlock.style.display='none';
   }
 
-  // ─── Напиток (динамический блок, только если у позиции есть опции напитка) ───
-  // поддерживаем оба формата: item.drink.options или item.drinks (массив строк)
-  const drinkOptionsData = (item.drink && Array.isArray(item.drink.options))
-    ? item.drink.options
-    : (Array.isArray(item.drinks) ? item.drinks : []);
-  // удалим старый блок, если был
+  // ─── Напиток: показываем только там, где он предусмотрен ─────────────────────
+  const isDrinkItem =
+    item?.drink === true ||
+    item?.includes_drink === true ||
+    (typeof item?.drink_included === 'number' ? item.drink_included > 0 : (item?.drink_included === true)) ||
+    Array.isArray(item?.drinks) ||
+    (item?.drink && Array.isArray(item.drink.options));
+
+  const drinkOptionsData = (
+    (item?.drink && Array.isArray(item.drink.options) && item.drink.options) ||
+    (Array.isArray(item?.drinks) && item.drinks) ||
+    (Array.isArray(state.conf?.drink_options) && state.conf.drink_options) ||
+    (Array.isArray(state.conf?.drinks) && state.conf.drinks) ||
+    (Array.isArray(state.conf?.beverages) && state.conf.beverages) ||
+    []
+  )
+  .map(x => typeof x === 'string' ? x : (x?.name || ''))
+  .filter(Boolean);
+
+  // удалить старый блок, если он был
   const prevDrinkBlock = document.getElementById('drinkBlock');
   if (prevDrinkBlock) prevDrinkBlock.remove();
 
-  if (drinkOptionsData.length) {
+  if (isDrinkItem && drinkOptionsData.length) {
     const block = document.createElement('div');
     block.id = 'drinkBlock';
-    block.className = 'section'; // нейтральный класс; кнопки используют .opt
+    block.className = 'section';
 
     const title = document.createElement('div');
     title.className = 'section-title';
@@ -270,10 +284,10 @@ function openSheet(item){
     drinkOptionsData.forEach((dName, idx) => {
       const btn = document.createElement('button');
       btn.className = 'opt' + (idx===0 ? ' active' : '');
-      btn.textContent = (typeof dName === 'string') ? dName : (dName?.name || '');
-      if (idx===0) state.select.drink = btn.textContent;
+      btn.textContent = dName;
+      if (idx===0) state.select.drink = dName;
       btn.onclick = () => {
-        state.select.drink = btn.textContent;
+        state.select.drink = dName;
         [...wrap.children].forEach(n => n.classList.toggle('active', n===btn));
       };
       wrap.appendChild(btn);
