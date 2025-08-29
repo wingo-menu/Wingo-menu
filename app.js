@@ -91,7 +91,9 @@ function ensureUIStyles(){
   .section-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
   .section-sep { height:1px; background:#2E7D32; opacity:.35; margin:12px 0; border:0; }
   /* кнопки одиночного напитка: не овальные, лаконичные */
-  .opt.opt-drink { border-radius: 8px !important; border:1px solid rgba(0,0,0,0.12); padding:8px 10px; line-height: 1.1; }
+  .opt.opt-drink { display:inline-block; margin:4px 8px 8px 0; border-radius: 8px !important; border:1px solid rgba(0,0,0,0.12); padding:8px 10px; line-height: 1.1; }
+  .opt.opt-drink .nm { vertical-align: middle; }
+  .opt.opt-drink .add { font-size: 12px; opacity:.75; margin-left:6px; vertical-align: middle; }
   .opt.opt-drink.active { border-color:#2E7D32; box-shadow: 0 0 0 2px rgba(46,125,50,0.12); }
   .opt.opt-drink:not(.active):hover { border-color: rgba(0,0,0,0.25); }
   /* для рядов счётчиков (напитки 2шт и дипы) — лёгкая сетка */
@@ -257,12 +259,12 @@ function buildDrinkUI(item){
 
   const title = document.createElement('div');
   title.className = 'section-title';
-  title.textContent = 'Напиток';
+  title.textContent = 'Напиток:'; // двоеточие и одинаковый стиль
   block.appendChild(title);
 
   insertSeparatorBefore(block); // зелёная линия перед разделом «Напиток»
 
-  // 1 напиток — как переключатели, НО «не овалы»
+  // 1 напиток — как переключатели, НЕ овальные, + отступ между кнопками и "+0"
   if (count === 1) {
     const wrap = document.createElement('div');
     wrap.id = 'drinkOptions';
@@ -271,7 +273,7 @@ function buildDrinkUI(item){
     options.forEach((name, idx) => {
       const btn = document.createElement('button');
       btn.className = 'opt opt-drink' + (idx===0 ? ' active' : '');
-      btn.textContent = name;
+      btn.innerHTML = `<span class="nm">${name}</span><span class="add">+0</span>`;
       if (idx===0) state.select.drink = name;
       btn.onclick = () => {
         state.select.drink = name;
@@ -397,7 +399,7 @@ function openSheet(item){
     item.garnish.options.forEach((g, idx) => {
       const o = document.createElement('button');
       o.className = 'opt' + (idx===0 ? ' active' : '');
-      o.textContent = g;
+      o.textContent = g + ' +0';
       if(idx===0) state.select.garnish = g;
       o.onclick = () => {
         state.select.garnish = g;
