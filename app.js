@@ -148,8 +148,8 @@ function addToCart(){
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
   const key=[it.id||it.name,(state.select.flavors||[]).join('+'),state.select.garnish||''].join('|');
   const ex=state.cart.find(c=>c.key===key);
-  if(ex){ ex.qty+=state.sheetQty; ex.extraDipQty=(ex.extraDipQty||0)+state.select.dipQty; }
-  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts,extraDipQty:state.select.dipQty}); }
+  if(ex){ ex.qty+=state.sheetQty; ex. }
+  else { state.cart.push({key,id:it.id||it.name,name:it.name,basePrice:it.price,qty:state.sheetQty,flavors:[...state.select.flavors],garnish:state.select.garnish,dips_included:it.dips_included||0,includedDipBreakdown:state.select.dipCounts, }
   localStorage.setItem('wingo.cart',JSON.stringify(state.cart));
   updateCartBar(); closeSheet();
 }
@@ -157,7 +157,7 @@ el.addToCart.onclick=addToCart;
 
 function updateCartBar(){
   const count=state.cart.reduce((a,c)=>a+c.qty,0);
-  const total=state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0);
+  const total=state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.
   el.cartCount.textContent=count+' поз.'; el.cartTotal.textContent=money(total);
 }
 el.openCheckout.onclick=()=>openCheckout();
@@ -192,8 +192,8 @@ function renderCoSummary(){
     if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
     if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
-    if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
-    const sum=c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0));
+    if(c.
+    const sum=c.qty*(c.basePrice+(c.
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
@@ -205,7 +205,7 @@ function renderCoSummary(){
       </div>
     </div>`;
   }).join('');
-  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0);
+  const total = state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.
   el.coSummary.innerHTML = lines; el.coTotal.textContent = money(total);
 }
 el.coSummary.addEventListener('click', (e)=>{
@@ -251,11 +251,11 @@ function makeWAOrderLink(){
     const extras=[]; if(c.flavors&&c.flavors.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
     if(c.dips_included){ extras.push('входит дипов: '+c.dips_included); const br=c.includedDipBreakdown||{}; const pairs=Object.keys(br).filter(k=>br[k]>0).map(k=>`${k}×${br[k]}`); if(pairs.length) extras.push('дипы: '+pairs.join(', ')); }
-    if(c.extraDipQty) extras.push('доп. дипов: '+c.extraDipQty);
-    const sum=Math.round(c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)));
+    if(c.
+    const sum=Math.round(c.qty*(c.basePrice+(c.
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
   }).join('%0A');
-  const total=Math.round(state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.extraDipQty||0)*(state.conf.dip_unit_price||0)),0));
+  const total=Math.round(state.cart.reduce((a,c)=>a+c.qty*(c.basePrice+(c.
 
   let addr=''; if(state.mode==='delivery'){
     const street=(el.coStreet.value||'').trim();
