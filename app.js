@@ -82,6 +82,29 @@ const el = {
   modeSegment: $('#modeSegment')
 };
 
+// ─── ДОБАВЛЕНО: аккуратная прокрутка к уведомлению ────────────────────────────
+function getHeaderOffsetPx() {
+  const header = document.querySelector('.header, header');
+  if (!header) return 0;
+  const cs = getComputedStyle(header);
+  if (cs.position === 'fixed' || cs.position === 'sticky') {
+    return header.offsetHeight || 0;
+  }
+  return 0;
+}
+function ensureNoticeVisible(elm) {
+  if (!elm) return;
+  elm.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const ho = getHeaderOffsetPx();
+  if (ho) {
+    setTimeout(() => {
+      // instant, чтобы не было двойной анимации
+      window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' });
+    }, 250);
+  }
+}
+// ───────────────────────────────────────────────────────────────────────────────
+
 // загрузка
 async function loadAll() {
   try {
@@ -428,14 +451,30 @@ function renderCoSummary(){
   });
 }
 
-// гео
+// ─── ДОБАВЛЕНО: формат текста в баннере гео, с расстоянием и адресом ──────────
 function updateGeoUI(){
   const b = el.geoBanner, g = state.geo;
-  if(g.status==='inside'){ b.className='geo-banner ok'; b.textContent='Вы внутри зоны доставки — доступна доставка.'; }
-  else if(g.status==='outside'){ b.className='geo-banner bad'; b.textContent='Вне зоны доставки — доступен самовывоз.'; }
-  else if(g.status==='denied'){ b.className='geo-banner bad'; b.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
-  else { b.className='geo-banner'; b.textContent=''; }
+  const d = (typeof g.distanceKm === 'number' && isFinite(g.distanceKm)) ? g.distanceKm : null;
+  const dStr = d !== null ? ` — расстояние: ${d.toFixed(1)} км` : '';
+  if(g.status==='inside'){
+    b.className='geo-banner ok';
+    b.textContent=`Доступна доставка с улицы Балкантау 94${dStr}.`;
+  }
+  else if(g.status==='outside'){
+    b.className='geo-banner bad';
+    b.textContent=`Доставка недоступна${dStr} (за пределами зоны).`;
+  }
+  else if(g.status==='denied'){
+    b.className='geo-banner bad';
+    b.textContent='Доступ к геолокации запрещён — доставка недоступна.';
+  }
+  else {
+    b.className='geo-banner';
+    b.textContent='';
+  }
 }
+// ───────────────────────────────────────────────────────────────────────────────
+
 el.geoBtn && (el.geoBtn.onclick = () => {
   if(!navigator.geolocation){ alert('Геолокация не поддерживается'); return; }
   el.geoBtn.disabled = true; el.geoBtn.textContent='Проверяем...';
@@ -449,9 +488,15 @@ el.geoBtn && (el.geoBtn.onclick = () => {
     state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo));
     updateGeoUI();
+    // ─── ДОБАВЛЕНО: после проверки — показать баннер, даже если пользователь внизу ───
+    ensureNoticeVisible(el.geoBanner);
+    // ──────────────────────────────────────────────────────────────────────────────
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, err=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI();
+    // ─── ДОБАВЛЕНО: гарантируем видимость сообщения об ошибке/отказе ─────────────
+    ensureNoticeVisible(el.geoBanner);
+    // ──────────────────────────────────────────────────────────────────────────────
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
 });
