@@ -21,7 +21,8 @@ const state = {
   mode: 'delivery',
   sheetItem: null,
   sheetQty: 1,
-  select: { flavors: [], garnish: null, dipCounts: {} } // только входящие дипы
+  // выборы внутри карточки
+  select: { flavors: [], garnish: null, dipCounts: {}, drinkCounts: {} }
 };
 
 const el = {
@@ -44,6 +45,14 @@ const el = {
   dipsInfo: $('#dipsInfo'),
   dipsChoice: $('#dipsChoice'),
   dipsLeftHint: $('#dipsLeftHint'),
+
+  // напитки
+  drinkBlock: $('#drinkBlock'),
+  drinkInfo: $('#drinkInfo'),
+  drinkOptions: $('#drinkOptions'),
+  drinkLeftHint: $('#drinkLeftHint'),
+  drinkChoice: $('#drinkChoice'),
+
   qtyMinus: $('#qtyMinus'),
   qtyPlus: $('#qtyPlus'),
   qtyValue: $('#qtyValue'),
@@ -148,7 +157,7 @@ function renderGrid(){
 function openSheet(item){
   state.sheetItem = item;
   state.sheetQty = 1;
-  state.select = { flavors: [], garnish: null, dipCounts: {} };
+  state.select = { flavors: [], garnish: null, dipCounts: {}, drinkCounts: {} };
 
   el.sheetImg.src = item.image || 'images/placeholder.png';
   el.sheetTitle.textContent = item.name;
@@ -212,6 +221,11 @@ function openSheet(item){
     el.dipsLeftHint.textContent='';
   }
 
+  // НОВОЕ: выбор напитка, если напиток входит
+  const drinkMap = state.conf.drinks_included_by_item || {};
+  const drinksIncluded = drinkMap[item.id] || 0;
+  buildDrinkUI(drinksIncluded);
+
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 }
@@ -261,6 +275,82 @@ function buildIncludedDipsUI(item){
   el.dipsLeftHint.textContent = leftInit>0 ? `Осталось распределить: ${leftInit}` : 'Распределено';
 }
 
+// напитки
+function buildDrinkUI(drinksIncluded){
+  const opts = state.conf.drink_options || [];
+  if(!drinksIncluded || !opts.length){
+    el.drinkBlock.style.display='none';
+    el.drinkOptions.innerHTML=''; el.drinkLeftHint.textContent=''; el.drinkChoice.innerHTML='';
+    state.select.drinkCounts = {};
+    return;
+  }
+  el.drinkBlock.style.display='';
+  el.drinkInfo.textContent = `Входит: ${drinksIncluded} напиток` + (drinksIncluded===1?'':'а');
+  state.select.drinkCounts = {};
+
+  // режим 1: один напиток — показываем чипсы-радио
+  if(drinksIncluded === 1){
+    el.drinkOptions.style.display='flex';
+    el.drinkChoice.innerHTML='';
+    el.drinkLeftHint.textContent='Выберите 1 напиток';
+    el.drinkOptions.innerHTML='';
+    opts.forEach((name, idx)=>{
+      const o=document.createElement('button');
+      o.className='opt'; o.textContent=name;
+      o.onclick=()=>{
+        // сбросить
+        [...el.drinkOptions.children].forEach(n=>n.classList.remove('active'));
+        o.classList.add('active');
+        // выставить выбор как 1 шт выбранного
+        state.select.drinkCounts = {};
+        opts.forEach(n=>state.select.drinkCounts[n]=0);
+        state.select.drinkCounts[name]=1;
+        el.drinkLeftHint.textContent = `Выбрано: ${name}`;
+      };
+      el.drinkOptions.appendChild(o);
+      // первый авто-выбор для удобства
+      if(idx===0){ o.click(); }
+    });
+  } else {
+    // режим 2+: распределение количеств
+    el.drinkOptions.innerHTML=''; el.drinkOptions.style.display='none';
+    el.drinkChoice.innerHTML='';
+    opts.forEach(name=>{
+      state.select.drinkCounts[name]=0;
+      const row=document.createElement('div');
+      row.className='opt drink';
+      row.innerHTML=`
+        <span class="nm">${name}</span>
+        <span class="ctr">
+          <button class="mini minus" type="button">−</button>
+          <span class="c">0</span>
+          <button class="mini plus" type="button">+</button>
+        </span>`;
+      const minus=row.querySelector('.minus');
+      const plus=row.querySelector('.plus');
+      const cEl=row.querySelector('.c');
+      const getAssigned=()=>Object.values(state.select.drinkCounts).reduce((a,b)=>a+(b||0),0);
+
+      minus.onclick=()=>{
+        const cur=state.select.drinkCounts[name]||0;
+        if(cur>0){ state.select.drinkCounts[name]=cur-1; cEl.textContent=state.select.drinkCounts[name]; }
+        const left=drinksIncluded-getAssigned();
+        el.drinkLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
+      };
+      plus.onclick=()=>{
+        const assigned=getAssigned();
+        if(assigned>=drinksIncluded) return;
+        state.select.drinkCounts[name]=(state.select.drinkCounts[name]||0)+1;
+        cEl.textContent=state.select.drinkCounts[name];
+        const left=drinksIncluded-getAssigned();
+        el.drinkLeftHint.textContent = left>0?`Осталось распределить: ${left}`:'Распределено';
+      };
+      el.drinkChoice.appendChild(row);
+    });
+    el.drinkLeftHint.textContent = `Осталось распределить: ${drinksIncluded}`;
+  }
+}
+
 // закрытие шита
 el.sheetClose.onclick = () => closeSheet();
 el.sheetBackdrop.onclick = () => closeSheet();
@@ -279,7 +369,25 @@ el.addToCart.onclick = () => {
   const it = state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
 
-  const key = [it.id||it.name, (state.select.flavors||[]).join('+'), state.select.garnish||''].join('|');
+  // если нужен напиток=1, убедимся что выбран
+  const di = (state.conf.drinks_included_by_item||{})[it.id] || 0;
+  if(di===1){
+    const sum = Object.values(state.select.drinkCounts||{}).reduce((a,b)=>a+b,0);
+    if(sum!==1){ alert('Выберите напиток'); return; }
+  }
+  if(di>1){
+    const sum = Object.values(state.select.drinkCounts||{}).reduce((a,b)=>a+b,0);
+    if(sum!==di){ alert('Распределите все напитки'); return; }
+  }
+
+  const key = [
+    it.id||it.name,
+    (state.select.flavors||[]).join('+'),
+    state.select.garnish||'',
+    // ключ также учитывает выбор напитков (чтобы одинаковые позиции с разными напитками были отдельными строками)
+    JSON.stringify(state.select.drinkCounts||{})
+  ].join('|');
+
   const ex = state.cart.find(c => c.key === key);
   const itemPayload = {
     key,
@@ -289,9 +397,10 @@ el.addToCart.onclick = () => {
     qty: state.sheetQty,
     flavors: [...(state.select.flavors||[])],
     garnish: state.select.garnish || null,
-    // только информация про ВХОДЯЩИЕ дипы
     dips_included: it.dips_included || 0,
-    dips_breakdown: state.select.dipCounts
+    dips_breakdown: state.select.dipCounts || {},
+    drinks_included: di || 0,
+    drinks_breakdown: state.select.drinkCounts || {}
   };
   if(ex){ ex.qty += state.sheetQty; }
   else { state.cart.push(itemPayload); }
@@ -348,6 +457,11 @@ function renderCoSummary(){
       extras.push('входит дипов: '+c.dips_included);
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
       if(pairs.length) extras.push('дипы: '+pairs.join(', '));
+    }
+    if(c.drinks_included){
+      extras.push('входит напитков: '+c.drinks_included);
+      const drinkPairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
+      if(drinkPairs.length) extras.push('напитки: '+drinkPairs.join(', '));
     }
     const sum = c.qty * c.basePrice;
     return `<div class="co-item" data-key="${c.key}">
@@ -424,6 +538,11 @@ function makeWAOrderLink(){
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
       if(pairs.length) extras.push('дипы: '+pairs.join(', '));
     }
+    if(c.drinks_included){
+      extras.push('входит напитков: '+c.drinks_included);
+      const dpairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
+      if(dpairs.length) extras.push('напитки: '+dpairs.join(', '));
+    }
     const sum = Math.round(c.qty * c.basePrice);
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
   }).join('%0A');
@@ -441,7 +560,7 @@ function makeWAOrderLink(){
 
   const name = encodeURIComponent((el.coName.value||'').trim());
   const phoneText = encodeURIComponent((el.coPhone.value||'').trim());
-  const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf.pickup?.address||''));
+  const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf.pickup?.address||'')); 
   const addrEnc = encodeURIComponent(addr);
   const note = encodeURIComponent((el.coNote.value||'').trim());
   const text = `Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}%0AКомментарий: ${note}`;
