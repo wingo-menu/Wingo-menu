@@ -83,20 +83,22 @@ const el = {
   modeSegment: $('#modeSegment')
 };
 
-// ─── Единый аккуратный стиль разделов и кнопок напитков (инжект CSS) ─────────
+// ─── Единый аккуратный стиль разделов и кнопок (инжект CSS) ───────────────────
 function ensureUIStyles(){
   if (document.getElementById('wingo-ui-style')) return;
   const css = `
   .section { padding-top: 8px; }
   .section-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
   .section-sep { height:1px; background:#2E7D32; opacity:.35; margin:12px 0; border:0; }
-  /* кнопки одиночного напитка: аккуратные прямоугольные, с отступами */
-  .opt.opt-drink { display:inline-block; margin:4px 8px 10px 0; border-radius: 8px !important; border:1px solid rgba(0,0,0,0.12); padding:10px 12px 8px 12px; line-height: 1.1; text-align:center; }
+  /* Базовый вид для всех опций (вкус/гарнир/напиток) */
+  .opt { display:inline-block; margin:4px 8px 8px 0; border-radius: 8px; border:1px solid rgba(0,0,0,0.12); padding:8px 10px; line-height:1.1; background:#fff; }
+  .opt:hover { border-color: rgba(0,0,0,0.25); }
+  .opt.active { border-color:#2E7D32; box-shadow: 0 0 0 2px rgba(46,125,50,0.12); }
+  /* Solo-напиток: нижняя серая подпись +0 ₸ */
+  .opt.opt-drink { text-align:center; padding:10px 12px 8px 12px; }
   .opt.opt-drink .nm { display:block; font-size:14px; font-weight:500; }
   .opt.opt-drink .add { display:block; font-size:12px; color:#6b7280; opacity:.9; margin-top:6px; padding-top:5px; border-top:1px solid rgba(0,0,0,0.08); }
-  .opt.opt-drink.active { border-color:#2E7D32; box-shadow: 0 0 0 2px rgba(46,125,50,0.12); }
-  .opt.opt-drink:not(.active):hover { border-color: rgba(0,0,0,0.25); }
-  /* для рядов счётчиков (напитки 2шт и дипы) — лёгкая сетка */
+  /* Сетка для счётчиков дипов/напитков 2+ */
   .dip-row + .dip-row { border-top:1px dashed rgba(0,0,0,0.08); }
   `;
   const st = document.createElement('style');
@@ -109,8 +111,22 @@ function insertSeparatorBefore(elm){
   const prev = elm.previousElementSibling;
   if (prev && prev.classList && prev.classList.contains('section-sep')) return;
   const hr = document.createElement('hr');
-  hr.className = 'section-sep';
+  hr.className = 'section-sep auto';
   elm.parentNode.insertBefore(hr, elm);
+}
+function dedupeSeparators(){
+  // Удаляем подряд идущие повторные разделители
+  const seps = Array.from(document.querySelectorAll('#sheet .section-sep'));
+  let prev = null;
+  seps.forEach(node => {
+    if (prev && prev.nextElementSibling === node && prev.classList.contains('section-sep') && node.classList.contains('section-sep')) {
+      // если два подряд — удаляем текущий
+      if (node.classList.contains('auto')) node.remove();
+      else if (prev.classList.contains('auto')) prev.remove();
+    } else {
+      prev = node;
+    }
+  });
 }
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -258,12 +274,11 @@ function buildDrinkUI(item){
 
   const title = document.createElement('div');
   title.className = 'section-title';
-  title.textContent = 'Напиток:'; // двоеточие и увеличенный стиль через CSS
+  title.textContent = 'Напиток:';
   block.appendChild(title);
 
-  insertSeparatorBefore(block); // зелёная линия перед разделом «Напиток»
+  insertSeparatorBefore(block);
 
-  // 1 напиток — как переключатели, НЕ овальные, с отступами и серой подписью "+0 ₸"
   if (count === 1) {
     const wrap = document.createElement('div');
     wrap.id = 'drinkOptions';
@@ -281,7 +296,6 @@ function buildDrinkUI(item){
       wrap.appendChild(btn);
     });
   } else {
-    // >=2 напитков — счётчики (как для дипов)
     const hint = document.createElement('div');
     hint.className = 'hint';
     block.appendChild(hint);
@@ -301,7 +315,7 @@ function buildDrinkUI(item){
     options.forEach(name => {
       state.select.drinkCounts[name] = 0;
       const row = document.createElement('div');
-      row.className = 'dip-row'; // используем стили строк
+      row.className = 'dip-row';
       row.innerHTML = `
         <div class="dip-name">${name}</div>
         <div class="dip-ctr">
@@ -335,7 +349,6 @@ function buildDrinkUI(item){
     setHint();
   }
 
-  // вставляем перед дипами, если они есть; иначе — в конец модалки
   if (el.dipsBlock && el.dipsBlock.parentNode) {
     el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock);
   } else {
@@ -398,7 +411,7 @@ function openSheet(item){
     item.garnish.options.forEach((g, idx) => {
       const o = document.createElement('button');
       o.className = 'opt' + (idx===0 ? ' active' : '');
-      o.textContent = g + ' +0';
+      o.textContent = g; // Убрали "+0" — у гарнира уже есть своя нижняя строка
       if(idx===0) state.select.garnish = g;
       o.onclick = () => {
         state.select.garnish = g;
@@ -425,6 +438,9 @@ function openSheet(item){
     el.dipsChoice.innerHTML='';
     el.dipsLeftHint.textContent='';
   }
+
+  // Удаляем лишние разделительные линии (между Гарнир и Напиток оставить одну)
+  dedupeSeparators();
 
   el.cartBar.classList.add('hidden');
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
