@@ -83,6 +83,35 @@ const el = {
   modeSegment: $('#modeSegment')
 };
 
+// ─── Единый аккуратный стиль разделов и кнопок напитков (инжект CSS) ─────────
+function ensureUIStyles(){
+  if (document.getElementById('wingo-ui-style')) return;
+  const css = `
+  .section { padding-top: 8px; }
+  .section-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
+  .section-sep { height:1px; background:#2E7D32; opacity:.35; margin:12px 0; border:0; }
+  /* кнопки одиночного напитка: не овальные, лаконичные */
+  .opt.opt-drink { border-radius: 8px !important; border:1px solid rgba(0,0,0,0.12); padding:8px 10px; line-height: 1.1; }
+  .opt.opt-drink.active { border-color:#2E7D32; box-shadow: 0 0 0 2px rgba(46,125,50,0.12); }
+  .opt.opt-drink:not(.active):hover { border-color: rgba(0,0,0,0.25); }
+  /* для рядов счётчиков (напитки 2шт и дипы) — лёгкая сетка */
+  .dip-row + .dip-row { border-top:1px dashed rgba(0,0,0,0.08); }
+  `;
+  const st = document.createElement('style');
+  st.id = 'wingo-ui-style';
+  st.textContent = css;
+  document.head.appendChild(st);
+}
+function insertSeparatorBefore(elm){
+  if (!elm || !elm.parentNode) return;
+  const prev = elm.previousElementSibling;
+  if (prev && prev.classList && prev.classList.contains('section-sep')) return;
+  const hr = document.createElement('hr');
+  hr.className = 'section-sep';
+  elm.parentNode.insertBefore(hr, elm);
+}
+// ───────────────────────────────────────────────────────────────────────────────
+
 // ─── Аккуратная прокрутка к уведомлению ───────────────────────────────────────
 function getHeaderOffsetPx() {
   const header = document.querySelector('.header, header');
@@ -121,6 +150,8 @@ async function loadAll() {
     alert('Ошибка загрузки конфигурации. Проверьте, что config.json и menu.json — валидный JSON (без комментариев).');
     return;
   }
+
+  ensureUIStyles();
 
   // сформируем варианты напитков из раздела меню "НАПИТКИ"
   try {
@@ -190,20 +221,18 @@ function renderGrid(){
 
 // ─── Напитки: разбор и UI ─────────────────────────────────────────────────────
 function getIncludedDrinksCount(item){
-  // 1) Жёсткие правила на конкретные позиции (надёжность и единообразие)
+  // Жёсткие правила на конкретные позиции (единообразие)
   if (item?.id === 'combo-wings-6') return 1;
   if (item?.id === 'combo-tenders-5') return 1;
   if (item?.id === 'duo-wings-15') return 2;
 
-  // 2) Универсальная логика по описанию
+  // Универсальная логика по описанию
   const t = (item.description || '').toLowerCase();
-  // сначала попробуем «число + напиток/напитка/напитков»
   const m = t.match(/(\d+)\s*напит(?:ок|ка|ков)/i);
   if (m) {
     const n = parseInt(m[1], 10);
     if (Number.isFinite(n) && n > 0) return n;
   }
-  // fallback: если есть слово «напиток» без числа — считаем как 1
   if (t.includes('напиток')) return 1;
   return 0;
 }
@@ -231,7 +260,9 @@ function buildDrinkUI(item){
   title.textContent = 'Напиток';
   block.appendChild(title);
 
-  // 1 напиток — как гарнир (переключатели)
+  insertSeparatorBefore(block); // зелёная линия перед разделом «Напиток»
+
+  // 1 напиток — как переключатели, НО «не овалы»
   if (count === 1) {
     const wrap = document.createElement('div');
     wrap.id = 'drinkOptions';
@@ -239,7 +270,7 @@ function buildDrinkUI(item){
 
     options.forEach((name, idx) => {
       const btn = document.createElement('button');
-      btn.className = 'opt' + (idx===0 ? ' active' : '');
+      btn.className = 'opt opt-drink' + (idx===0 ? ' active' : '');
       btn.textContent = name;
       if (idx===0) state.select.drink = name;
       btn.onclick = () => {
@@ -269,7 +300,7 @@ function buildDrinkUI(item){
     options.forEach(name => {
       state.select.drinkCounts[name] = 0;
       const row = document.createElement('div');
-      row.className = 'dip-row'; // уже стилизовано под строки с контролами
+      row.className = 'dip-row';
       row.innerHTML = `
         <div class="dip-name">${name}</div>
         <div class="dip-ctr">
@@ -303,7 +334,7 @@ function buildDrinkUI(item){
     setHint();
   }
 
-  // вставим блок перед дипами, если они есть; иначе — в конец модалки
+  // вставляем перед дипами, если они есть; иначе — в конец модалки
   if (el.dipsBlock && el.dipsBlock.parentNode) {
     el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock);
   } else {
@@ -354,6 +385,7 @@ function openSheet(item){
       el.flavorOptions.appendChild(o);
     });
     updateFlavorHint(item);
+    insertSeparatorBefore(el.flavorBlock);
   } else {
     el.flavorBlock.style.display = 'none';
   }
@@ -373,6 +405,7 @@ function openSheet(item){
       };
       el.garnishOptions.appendChild(o);
     });
+    insertSeparatorBefore(el.garnishBlock);
   } else {
     el.garnishBlock.style.display='none';
   }
@@ -385,6 +418,7 @@ function openSheet(item){
     el.dipsBlock.style.display='';
     el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
     buildIncludedDipsUI(item);
+    insertSeparatorBefore(el.dipsBlock);
   } else {
     el.dipsBlock.style.display='none';
     el.dipsChoice.innerHTML='';
