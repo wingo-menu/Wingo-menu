@@ -7,7 +7,7 @@ const money = v => '₸' + Math.round(v || 0).toLocaleString('ru-RU');
 const hav = (a, b) => {
   const R = 6371, toRad = x => x * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(Math.abs(dLon)/2)**2;
   return 2 * R * Math.asin(Math.sqrt(s));
 };
 
@@ -22,7 +22,7 @@ const state = {
   sheetItem: null,
   sheetQty: 1,
   // ТОЛЬКО входящие дипы (без доп. дипов)
-  select: { flavors: [], garnish: null, dipCounts: {} }
+  select: { flavors: [], garnish: null, drink: null, dipCounts: {} }
 };
 
 const el = {
@@ -183,7 +183,7 @@ function renderGrid(){
 function openSheet(item){
   state.sheetItem = item;
   state.sheetQty = 1;
-  state.select = { flavors: [], garnish: null, dipCounts: {} };
+  state.select = { flavors: [], garnish: null, drink: null, dipCounts: {} };
 
   el.sheetImg.src = item.image || 'images/placeholder.png';
   el.sheetTitle.textContent = item.name;
@@ -243,6 +243,50 @@ function openSheet(item){
   } else {
     el.garnishBlock.style.display='none';
   }
+
+  // ─── Напиток (динамический блок, только если у позиции есть опции напитка) ───
+  // поддерживаем оба формата: item.drink.options или item.drinks (массив строк)
+  const drinkOptionsData = (item.drink && Array.isArray(item.drink.options))
+    ? item.drink.options
+    : (Array.isArray(item.drinks) ? item.drinks : []);
+  // удалим старый блок, если был
+  const prevDrinkBlock = document.getElementById('drinkBlock');
+  if (prevDrinkBlock) prevDrinkBlock.remove();
+
+  if (drinkOptionsData.length) {
+    const block = document.createElement('div');
+    block.id = 'drinkBlock';
+    block.className = 'section'; // нейтральный класс; кнопки используют .opt
+
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Напиток';
+    block.appendChild(title);
+
+    const wrap = document.createElement('div');
+    wrap.id = 'drinkOptions';
+    block.appendChild(wrap);
+
+    drinkOptionsData.forEach((dName, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'opt' + (idx===0 ? ' active' : '');
+      btn.textContent = (typeof dName === 'string') ? dName : (dName?.name || '');
+      if (idx===0) state.select.drink = btn.textContent;
+      btn.onclick = () => {
+        state.select.drink = btn.textContent;
+        [...wrap.children].forEach(n => n.classList.toggle('active', n===btn));
+      };
+      wrap.appendChild(btn);
+    });
+
+    // вставляем перед блоком дипов, если он есть; иначе — в конец модалки
+    if (el.dipsBlock && el.dipsBlock.parentNode) {
+      el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock);
+    } else {
+      el.sheet.appendChild(block);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // ВХОДЯЩИЕ дипы (распределение по счётчикам)
   if(typeof item.dips_included === 'number'){
@@ -340,7 +384,13 @@ el.addToCart.onclick = () => {
   const it = state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
 
-  const key = [it.id||it.name, (state.select.flavors||[]).join('+'), state.select.garnish||''].join('|');
+  const key = [
+    it.id||it.name,
+    (state.select.flavors||[]).join('+'),
+    state.select.garnish||'',
+    state.select.drink||''
+  ].join('|');
+
   const ex = state.cart.find(c => c.key === key);
   const itemPayload = {
     key,
@@ -350,6 +400,7 @@ el.addToCart.onclick = () => {
     qty: state.sheetQty,
     flavors: [...(state.select.flavors||[])],
     garnish: state.select.garnish || null,
+    drink: state.select.drink || null,
     // только ВХОДЯЩИЕ дипы
     dips_included: it.dips_included || 0,
     dips_breakdown: state.select.dipCounts
@@ -411,6 +462,7 @@ function renderCoSummary(){
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
+    if(c.drink) extras.push('напиток: '+c.drink);
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
@@ -508,6 +560,7 @@ function makeWAOrderLink(){
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
     if(c.garnish) extras.push('гарнир: '+c.garnish);
+    if(c.drink) extras.push('напиток: '+c.drink);
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
