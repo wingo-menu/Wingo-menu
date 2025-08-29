@@ -9,25 +9,15 @@
   },
   "dip_unit_price": 380,
   "cooking_flavors": [
-    { "name": "BBQ", "heat": 0, "color": "#6a3b14", "note": "неострое" },
-    { "name": "Медово-горчичный", "heat": 0, "color": "#f2b705", "note": "неострое" },
-    { "name": "Сладко-острый", "heat": 1, "color": "#e65a1e", "note": "средняя острота" },
-    { "name": "Wingo fire", "heat": 3, "color": "#d61c1c", "note": "острое" }
+    { "name": "BBQ", "heat": 0, "color": "#6a3b14" },
+    { "name": "Медово-горчичный", "heat": 0, "color": "#f2b705" },
+    { "name": "Сладко-острый", "heat": 1, "color": "#e65a1e" },
+    { "name": "Wingo fire", "heat": 3, "color": "#d61c1c" }
   ],
   "pickup": { "address": "Балкантау 94" },
   "delivery": {
     "center": { "lat": 51.13192937251173, "lng": 71.47830351934499 },
     "radius_km": 1.5
   },
-  "dip_flavors": ["Ранч", "Сырный", "Сладко-острый", "BBQ", "Медово-горчичный"],
-
-  /* НОВОЕ: доступные варианты напитков для позиций, где напиток входит */
-  "drink_options": ["Coca-Cola 0,5", "Fuse Tea 0,5", "Вода Asu 0,5"],
-
-  /* НОВОЕ: карта количества входящих напитков по id позиции меню */
-  "drinks_included_by_item": {
-    "combo-wings-6": 1,
-    "combo-tenders-5": 1,
-    "duo-wings-15": 2
-  }
+  "dip_flavors": ["Ранч", "Сырный", "Сладко-острый", "BBQ", "Медово-горчичный"]
 }
