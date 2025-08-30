@@ -114,6 +114,8 @@ function ensureUIStyles(){
   /* Зелёная кнопка (для закрытия чекаута) */
   .btn-green { background:#2E7D32 !important; color:#fff !important; border:1px solid #2E7D32 !important; }
   .btn-green:hover { filter:brightness(0.95); }
+  /* Круглая кнопка */
+  .btn-round { border-radius:9999px !important; aspect-ratio:1 / 1; width:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
   `;
   const st = document.createElement('style');
   st.id = 'wingo-ui-style';
@@ -182,8 +184,8 @@ async function loadAll() {
   }
 
   ensureUIStyles();
-  // зелёная кнопка закрытия оформления
-  if (el.coClose) el.coClose.classList.add('btn-green');
+  // зелёная и круглая кнопка закрытия оформления
+  if (el.coClose) el.coClose.classList.add('btn-green','btn-round');
 
   // сформируем варианты напитков из раздела меню "НАПИТКИ"
   try {
@@ -601,7 +603,7 @@ function updateNoteUIByMode(){
     if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)';
   } else {
     if (label) label.textContent = 'Комментарий ресторану';
-    if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (время прихода, пожелания...)';
+    if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)';
   }
 }
 
