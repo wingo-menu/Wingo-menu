@@ -111,6 +111,9 @@ function ensureUIStyles(){
   .opt.opt-drink .add { display:block; font-size:12px; color:#6b7280; opacity:.9; margin-top:6px; padding-top:5px; border-top:1px solid rgba(0,0,0,0.08); }
   /* Сетка для счётчиков дипов/напитков 2+ */
   .dip-row + .dip-row { border-top:1px dashed rgba(0,0,0,0.08); }
+  /* Зелёная кнопка (для закрытия чекаута) */
+  .btn-green { background:#2E7D32 !important; color:#fff !important; border:1px solid #2E7D32 !important; }
+  .btn-green:hover { filter:brightness(0.95); }
   `;
   const st = document.createElement('style');
   st.id = 'wingo-ui-style';
@@ -179,6 +182,8 @@ async function loadAll() {
   }
 
   ensureUIStyles();
+  // зелёная кнопка закрытия оформления
+  if (el.coClose) el.coClose.classList.add('btn-green');
 
   // сформируем варианты напитков из раздела меню "НАПИТКИ"
   try {
@@ -588,6 +593,18 @@ function updateCartBar(){
 el.openCheckout.onclick = () => openCheckout();
 el.cartOpenArea.onclick = () => openCheckout();
 
+function updateNoteUIByMode(){
+  // Аккуратно меняем текст ярлыка и плейсхолдер у комментария
+  const label = document.querySelector('label[for="coNote"]') || el.coNote?.closest('.field')?.querySelector('label');
+  if (state.mode === 'delivery') {
+    if (label) label.textContent = 'Комментарий курьеру';
+    if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)';
+  } else {
+    if (label) label.textContent = 'Комментарий ресторану';
+    if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (время прихода, пожелания...)';
+  }
+}
+
 function openCheckout(){
   // требуем геопроверку перед оформлением
   if (state.geo && state.geo.status === 'unknown') {
@@ -599,6 +616,7 @@ function openCheckout(){
   updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
+  updateNoteUIByMode();
   renderCoSummary();
 }
 el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
@@ -620,6 +638,7 @@ function updateModeUI(){
     el.addressGroup.style.display='none';
   }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
+  updateNoteUIByMode();
 }
 
 function renderCoSummary(){
