@@ -255,6 +255,9 @@ function renderGrid(){
 
 // ─── Напитки: разбор и UI ─────────────────────────────────────────────────────
 function getIncludedDrinksCount(item){
+  // Если это отдельная карточка из категории «Напитки», никакие «входящие напитки» не рисуем
+  if ((item?.category || '').toLowerCase() === 'напитки') return 0;
+
   // Жёсткие правила на конкретные позиции (единообразие)
   if (item?.id === 'combo-wings-6') return 1;
   if (item?.id === 'combo-tenders-5') return 1;
@@ -278,6 +281,12 @@ function removePrevDrinkBlock(){
 
 function buildDrinkUI(item){
   removePrevDrinkBlock();
+
+  // Если это карточка из категории «Напитки» — ничего не вставляем
+  if ((item?.category || '').toLowerCase() === 'напитки') {
+    state.select.drink = null; state.select.drinkCounts = {};
+    return;
+  }
 
   const count = getIncludedDrinksCount(item);
   if (!count) { state.select.drink = null; state.select.drinkCounts = {}; return; }
@@ -386,8 +395,10 @@ function openSheet(item){
   el.sheetDesc.textContent = item.description || '';
   el.qtyValue.textContent = state.sheetQty;
 
+  const isDrinkCard = ((item.category || '').toLowerCase() === 'напитки');
+
   // вкусы
-  if(item.flavors_max){
+  if(!isDrinkCard && item.flavors_max){
     el.flavorBlock.style.display = '';
     el.flavorMax.textContent = item.flavors_max;
     el.flavorOptions.innerHTML = '';
@@ -422,7 +433,7 @@ function openSheet(item){
   }
 
   // гарнир
-  if(item.garnish && item.garnish.options && item.garnish.options.length){
+  if(!isDrinkCard && item.garnish && item.garnish.options && item.garnish.options.length){
     el.garnishBlock.style.display='';
     el.garnishOptions.innerHTML='';
     item.garnish.options.forEach((g, idx) => {
@@ -441,11 +452,11 @@ function openSheet(item){
     el.garnishBlock.style.display='none';
   }
 
-  // НАПИТКИ (если включены в это блюдо)
-  buildDrinkUI(item);
+  // НАПИТКИ (если включены в это блюдо и это не карточка напитка)
+  if (!isDrinkCard) buildDrinkUI(item);
 
   // ВХОДЯЩИЕ дипы (распределение по счётчикам)
-  if(typeof item.dips_included === 'number'){
+  if(!isDrinkCard && typeof item.dips_included === 'number'){
     el.dipsBlock.style.display='';
     el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
     buildIncludedDipsUI(item);
@@ -595,14 +606,22 @@ function updateCartBar(){
 el.openCheckout.onclick = () => openCheckout();
 el.cartOpenArea.onclick = () => openCheckout();
 
+// Надёжная смена заголовка/плейсхолдера комментария по режиму
+function setNoteLabel(text){
+  // пробуем разные варианты расположения ярлыка
+  const labelCandidates = [
+    document.querySelector('label[for="coNote"]'),
+    el.coNote?.closest('.field')?.querySelector('label'),
+    ...Array.from(document.querySelectorAll('#checkout label')).filter(l => /Комментарий/i.test(l.textContent || ''))
+  ].filter(Boolean);
+  labelCandidates.forEach(l => l.textContent = text);
+}
 function updateNoteUIByMode(){
-  // Аккуратно меняем текст ярлыка и плейсхолдер у комментария
-  const label = document.querySelector('label[for="coNote"]') || el.coNote?.closest('.field')?.querySelector('label');
   if (state.mode === 'delivery') {
-    if (label) label.textContent = 'Комментарий курьеру';
+    setNoteLabel('Комментарий курьеру');
     if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)';
   } else {
-    if (label) label.textContent = 'Комментарий ресторану';
+    setNoteLabel('Комментарий ресторану');
     if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)';
   }
 }
@@ -668,9 +687,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn minus" data-k="${c.key}">−</button>
+        <button class="qtybtn.minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn plus" data-k="${c.key}">+</button>
+        <button class="qtybtn.plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
@@ -679,7 +698,7 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines;
   el.coTotal.textContent = money(total);
 
-  el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
+  el.coSummary.querySelectorAll('.qtybtn\\.minus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k');
     const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){
@@ -688,7 +707,7 @@ function renderCoSummary(){
       renderCoSummary(); updateCartBar();
     }
   });
-  el.coSummary.querySelectorAll('.qtybtn.plus').forEach(b=>b.onclick=()=>{
+  el.coSummary.querySelectorAll('.qtybtn\\.plus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k');
     const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){
