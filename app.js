@@ -18,7 +18,7 @@ const BUILD_VERSION = (() => {
 const hav = (a, b) => {
   const R = 6371, toRad = x => x * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(Math.pow(dLon/2,2));
   return 2 * R * Math.asin(Math.sqrt(s));
 };
 
@@ -150,7 +150,7 @@ function getHeaderOffsetPx() {
   const header = document.querySelector('.header, header');
   if (!header) return 0;
   const cs = getComputedStyle(header);
-  if (cs.position === 'fixed' || cs.position === 'sticky') {
+  if (cs.position === 'fixed' или cs.position === 'sticky') {
     return header.offsetHeight || 0;
   }
   return 0;
@@ -616,6 +616,10 @@ function setNoteLabel(text){
   ].filter(Boolean);
   labelCandidates.forEach(l => l.textContent = text);
 }
+function ensureNoteFieldVisible(){
+  const field = el.coNote ? el.coNote.closest('.field') : null;
+  if (field) field.style.display = '';
+}
 function updateNoteUIByMode(){
   if (state.mode === 'delivery') {
     setNoteLabel('Комментарий курьеру');
@@ -624,6 +628,7 @@ function updateNoteUIByMode(){
     setNoteLabel('Комментарий ресторану');
     if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)';
   }
+  ensureNoteFieldVisible();
 }
 
 function openCheckout(){
@@ -687,9 +692,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn.minus" data-k="${c.key}">−</button>
+        <button class="qtybtn minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn.plus" data-k="${c.key}">+</button>
+        <button class="qtybtn plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
@@ -698,7 +703,7 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines;
   el.coTotal.textContent = money(total);
 
-  el.coSummary.querySelectorAll('.qtybtn\\.minus').forEach(b=>b.onclick=()=>{
+  el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k');
     const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){
@@ -707,7 +712,7 @@ function renderCoSummary(){
       renderCoSummary(); updateCartBar();
     }
   });
-  el.coSummary.querySelectorAll('.qtybtn\\.plus').forEach(b=>b.onclick=()=>{
+  el.coSummary.querySelectorAll('.qtybtn.plus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k');
     const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){
