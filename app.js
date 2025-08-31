@@ -459,35 +459,29 @@ el.coWhatsApp.onclick = () => {
 
 loadAll();
 
-// --- injected brand logo (minimal) ---
-
+// --- injected brand logo adjustments (position+contrast) ---
 (function(){
-  function addLogo(){
-    try{
-      if (document.getElementById('brandLogo')) return;
-      var a = document.createElement('a');
-      a.id = 'brandLogo';
-      a.href = '/';
-      a.setAttribute('aria-label','Wingo Home');
-      var img = document.createElement('img');
-      img.src = 'assets/logo-white.svg';
-      img.alt = 'Wingo';
-      img.loading = 'lazy';
-      a.appendChild(img);
-      document.body.appendChild(a);
-    }catch(e){/* noop */}
-  }
-  // minimal, separate style tag to avoid touching existing styles
-  function ensureLogoStyles(){
-    if (document.getElementById('logo-style')) return;
-    var st = document.createElement('style'); st.id = 'logo-style'; st.type='text/css';
-    st.appendChild(document.createTextNode('\n/* logo badge */\n#brandLogo{position:fixed;top:10px;left:12px;height:32px;z-index:10;display:inline-flex;align-items:center;text-decoration:none}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:36px;top:12px;left:16px}}\n'));
+  function ensureLogoAdjustStyles(){
+    if (document.getElementById('logo-style-2')) return;
+    var st = document.createElement('style'); st.id='logo-style-2'; st.type='text/css';
+    st.appendChild(document.createTextNode("\n/* logo overrides: right corner + visible on white bg */\n#brandLogo{left:auto !important; right:12px !important;}\n@media (min-width:768px){#brandLogo{right:16px !important}}\n#brandLogo .logo-shape{\n  display:block;\n  height:100%;\n  aspect-ratio:2461/666;\n  background:#2E7D32; /* brand green */\n  -webkit-mask: url('assets/logo-white.svg') no-repeat center / contain;\n          mask: url('assets/logo-white.svg') no-repeat center / contain;\n}\n"));
     document.head.appendChild(st);
   }
+  function upgradeLogoNode(){
+    var a = document.getElementById('brandLogo');
+    if (!a) return;
+    // If we already upgraded, skip
+    if (a.querySelector('.logo-shape')) return;
+    // Replace any <img> with mask-colored shape so it's visible on white bg
+    a.innerHTML = '';
+    var span = document.createElement('span');
+    span.className = 'logo-shape';
+    a.appendChild(span);
+  }
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){ ensureLogoStyles(); addLogo(); });
+    document.addEventListener('DOMContentLoaded', function(){ ensureLogoAdjustStyles(); upgradeLogoNode(); });
   } else {
-    ensureLogoStyles(); addLogo();
+    ensureLogoAdjustStyles(); upgradeLogoNode();
   }
 })();
 
