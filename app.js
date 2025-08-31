@@ -306,7 +306,37 @@ function setNoteLabel(text){
     ...Array.from(document.querySelectorAll('#checkout label')).filter(l => /Комментарий/i.test(l.textContent || '')) ].filter(Boolean);
   labelCandidates.forEach(l => { l.textContent = text; });
 }
-function forceShowNoteField(){
+
+function ensureNoteField(){
+  // Create #coNote textarea if missing (e.g., in pickup mode markup)
+  if (el.coNote && el.coNote.tagName) return;
+  const checkout = el.checkout || document.getElementById('checkout');
+  if (!checkout) return;
+  // Try to find label for coNote or any label containing "Комментарий"
+  let label = checkout.querySelector('label[for="coNote"]') || Array.from(checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
+  let container = (label && label.closest && label.closest('.field')) ? label.closest('.field') : null;
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'field';
+    // Insert near the label if found, else append to checkout
+    if (label && label.parentNode) {
+      label.parentNode.insertBefore(container, label.nextSibling);
+      container.appendChild(label);
+    } else {
+      checkout.appendChild(container);
+    }
+  }
+  const ta = document.createElement('textarea');
+  ta.id = 'coNote';
+  ta.className = 'input';
+  ta.rows = 3;
+  ta.placeholder = state.mode === 'delivery' 
+    ? 'Комментарий курьеру (как пройти, код домофона...)' 
+    : 'Комментарий ресторану (пожелания, уточнения...)';
+  container.appendChild(ta);
+  el.coNote = ta;
+}
+function forceShowNoteField(){ ensureNoteField();
   if (!el.coNote) return;
   el.coNote.removeAttribute('hidden'); el.coNote.style.display = ''; el.coNote.style.visibility = 'visible';
   const field = el.coNote.closest('.field') || el.coNote.parentElement;
@@ -317,7 +347,7 @@ function forceShowNoteField(){
     if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); p = p.parentElement;
   }
 }
-function updateNoteUIByMode(){
+function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
   else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
@@ -328,7 +358,7 @@ function openCheckout(){
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
-  updateNoteUIByMode(); renderCoSummary();
+  ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
 }
 el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
 el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
