@@ -306,68 +306,7 @@ function setNoteLabel(text){
     ...Array.from(document.querySelectorAll('#checkout label')).filter(l => /Комментарий/i.test(l.textContent || '')) ].filter(Boolean);
   labelCandidates.forEach(l => { l.textContent = text; });
 }
-
-
-function injectNoteAfterLabel(){
-  const checkout = el.checkout || document.getElementById('checkout');
-  if (!checkout) return;
-  // find label text that contains "Комментарий"
-  const labels = Array.from(checkout.querySelectorAll('label'));
-  const label = labels.find(l => /Комментарий/i.test((l.textContent||'').trim()));
-  if (!label) { ensureNoteField(); return; }
-  // if textarea already right after label — keep it
-  const next = label.nextElementSibling;
-  if (next && next.tagName === 'TEXTAREA' && next.id === 'coNote') return;
-  // ensure single textarea
-  let ta = checkout.querySelector('#coNote');
-  if (!ta) { ta = document.createElement('textarea'); ta.id = 'coNote'; }
-  ta.setAttribute('rows','3');
-  ta.placeholder = (state.mode === 'delivery')
-    ? 'Комментарий курьеру (как пройти, код домофона...)'
-    : 'Комментарий ресторану (пожелания, уточнения...)';
-  // inline styles to guarantee visibility on iOS/Safari
-  ta.style.width = '100%';
-  ta.style.boxSizing = 'border-box';
-  ta.style.border = '1px solid rgba(0,0,0,.15)';
-  ta.style.borderRadius = '12px';
-  ta.style.padding = '12px 14px';
-  ta.style.margin = '6px 0 12px 0';
-  ta.style.fontSize = '16px';
-  ta.style.minHeight = '60px';
-  // insert right under label
-  label.parentNode.insertBefore(ta, label.nextSibling);
-  el.coNote = ta;
-}
-function ensureNoteField(){
-  // Create #coNote textarea if missing (e.g., in pickup mode markup)
-  if (el.coNote && el.coNote.tagName) return;
-  const checkout = el.checkout || document.getElementById('checkout');
-  if (!checkout) return;
-  // Try to find label for coNote or any label containing "Комментарий"
-  let label = checkout.querySelector('label[for="coNote"]') || Array.from(checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
-  let container = (label && label.closest && label.closest('.field')) ? label.closest('.field') : null;
-  if (!container) {
-    container = document.createElement('div');
-    container.className = 'field';
-    // Insert near the label if found, else append to checkout
-    if (label && label.parentNode) {
-      label.parentNode.insertBefore(container, label.nextSibling);
-      container.appendChild(label);
-    } else {
-      checkout.appendChild(container);
-    }
-  }
-  const ta = document.createElement('textarea');
-  ta.id = 'coNote';
-  ta.className = 'input';
-  ta.rows = 3;
-  ta.placeholder = state.mode === 'delivery' 
-    ? 'Комментарий курьеру (как пройти, код домофона...)' 
-    : 'Комментарий ресторану (пожелания, уточнения...)';
-  container.appendChild(ta);
-  el.coNote = ta;
-}
-function forceShowNoteField(){ ensureNoteField();
+function forceShowNoteField(){
   if (!el.coNote) return;
   el.coNote.removeAttribute('hidden'); el.coNote.style.display = ''; el.coNote.style.visibility = 'visible';
   const field = el.coNote.closest('.field') || el.coNote.parentElement;
@@ -378,19 +317,18 @@ function forceShowNoteField(){ ensureNoteField();
     if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); p = p.parentElement;
   }
 }
-function updateNoteUIByMode(){ ensureNoteField();
+function updateNoteUIByMode(){
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
   else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
 function openCheckout(){
-  injectNoteAfterLabel();
   if (state.geo && state.geo.status === 'unknown') { alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.'); return; }
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
-  ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
+  updateNoteUIByMode(); renderCoSummary();
 }
 el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
 el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
@@ -403,7 +341,6 @@ el.modeSegment.addEventListener('click', e=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  injectNoteAfterLabel();
   if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; el.addressGroup.style.display=''; }
   else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : ''); el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode)); updateNoteUIByMode();
@@ -521,3 +458,36 @@ el.coWhatsApp.onclick = () => {
 };
 
 loadAll();
+
+// --- injected brand logo (minimal) ---
+
+(function(){
+  function addLogo(){
+    try{
+      if (document.getElementById('brandLogo')) return;
+      var a = document.createElement('a');
+      a.id = 'brandLogo';
+      a.href = '/';
+      a.setAttribute('aria-label','Wingo Home');
+      var img = document.createElement('img');
+      img.src = 'assets/logo-white.svg';
+      img.alt = 'Wingo';
+      img.loading = 'lazy';
+      a.appendChild(img);
+      document.body.appendChild(a);
+    }catch(e){/* noop */}
+  }
+  // minimal, separate style tag to avoid touching existing styles
+  function ensureLogoStyles(){
+    if (document.getElementById('logo-style')) return;
+    var st = document.createElement('style'); st.id = 'logo-style'; st.type='text/css';
+    st.appendChild(document.createTextNode('\n/* logo badge */\n#brandLogo{position:fixed;top:10px;left:12px;height:32px;z-index:10;display:inline-flex;align-items:center;text-decoration:none}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:36px;top:12px;left:16px}}\n'));
+    document.head.appendChild(st);
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ ensureLogoStyles(); addLogo(); });
+  } else {
+    ensureLogoStyles(); addLogo();
+  }
+})();
+
