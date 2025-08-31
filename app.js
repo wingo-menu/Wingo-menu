@@ -307,6 +307,37 @@ function setNoteLabel(text){
   labelCandidates.forEach(l => { l.textContent = text; });
 }
 
+
+function injectNoteAfterLabel(){
+  const checkout = el.checkout || document.getElementById('checkout');
+  if (!checkout) return;
+  // find label text that contains "Комментарий"
+  const labels = Array.from(checkout.querySelectorAll('label'));
+  const label = labels.find(l => /Комментарий/i.test((l.textContent||'').trim()));
+  if (!label) { ensureNoteField(); return; }
+  // if textarea already right after label — keep it
+  const next = label.nextElementSibling;
+  if (next && next.tagName === 'TEXTAREA' && next.id === 'coNote') return;
+  // ensure single textarea
+  let ta = checkout.querySelector('#coNote');
+  if (!ta) { ta = document.createElement('textarea'); ta.id = 'coNote'; }
+  ta.setAttribute('rows','3');
+  ta.placeholder = (state.mode === 'delivery')
+    ? 'Комментарий курьеру (как пройти, код домофона...)'
+    : 'Комментарий ресторану (пожелания, уточнения...)';
+  // inline styles to guarantee visibility on iOS/Safari
+  ta.style.width = '100%';
+  ta.style.boxSizing = 'border-box';
+  ta.style.border = '1px solid rgba(0,0,0,.15)';
+  ta.style.borderRadius = '12px';
+  ta.style.padding = '12px 14px';
+  ta.style.margin = '6px 0 12px 0';
+  ta.style.fontSize = '16px';
+  ta.style.minHeight = '60px';
+  // insert right under label
+  label.parentNode.insertBefore(ta, label.nextSibling);
+  el.coNote = ta;
+}
 function ensureNoteField(){
   // Create #coNote textarea if missing (e.g., in pickup mode markup)
   if (el.coNote && el.coNote.tagName) return;
@@ -354,6 +385,7 @@ function updateNoteUIByMode(){ ensureNoteField();
 }
 
 function openCheckout(){
+  injectNoteAfterLabel();
   if (state.geo && state.geo.status === 'unknown') { alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.'); return; }
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
@@ -371,6 +403,7 @@ el.modeSegment.addEventListener('click', e=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
+  injectNoteAfterLabel();
   if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; el.addressGroup.style.display=''; }
   else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : ''); el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode)); updateNoteUIByMode();
