@@ -538,3 +538,11 @@ loadAll();
   }
 })();
 
+(function(){
+  if (!document.getElementById('modal-contrast-fix')){
+    var st = document.createElement('style'); st.id='modal-contrast-fix'; st.type='text/css';
+    st.appendChild(document.createTextNode('\n/* modal contrast fix: ensure modals are above backdrops and not dim */\n#sheet, #checkout { position: fixed; z-index: 4000 !important; opacity: 1 !important; filter: none !important; }\n#sheetBackdrop, #coBackdrop { position: fixed; z-index: 3990 !important; }\n'));
+    (document.head || document.body).appendChild(st);
+  }
+})();
+
