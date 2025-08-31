@@ -464,7 +464,7 @@ loadAll();
   function ensureLogoAdjustStyles(){
     if (document.getElementById('logo-style-2')) return;
     var st = document.createElement('style'); st.id='logo-style-2'; st.type='text/css';
-    st.appendChild(document.createTextNode("\n/* logo overrides: right corner + visible on white bg */\n#brandLogo{left:auto !important; right:12px !important;}\n@media (min-width:768px){#brandLogo{right:16px !important}}\n#brandLogo .logo-shape{\n  display:block;\n  height:100%;\n  aspect-ratio:2461/666;\n  background:#2E7D32; /* brand green */\n  -webkit-mask: url('assets/logo-white.svg') no-repeat center / contain;\n          mask: url('assets/logo-white.svg') no-repeat center / contain;\n}\n"));
+    st.appendChild(document.createTextNode("\n/* logo overrides: right corner + visible on white bg */\n#brandLogo{position:fixed;top:10px;right:12px;height:48px;z-index:1;display:inline-flex;align-items:center;text-decoration:none;pointer-events:none}\n@media (min-width:768px){#brandLogo{height:56px;top:12px;right:16px}}\n#brandLogo .logo-shape{\n  display:block;\n  height:100%;\n  aspect-ratio:2461/666;\n  background:#2E7D32; /* brand green */\n  -webkit-mask: url('assets/logo-white.svg') no-repeat center / contain;\n          mask: url('assets/logo-white.svg') no-repeat center / contain;\n}\n"));
     document.head.appendChild(st);
   }
   function upgradeLogoNode(){
@@ -490,7 +490,7 @@ loadAll();
   function ensureBrandLogoStyles(){
     if (document.getElementById('logo-style-3')) return;
     var st = document.createElement('style'); st.id='logo-style-3'; st.type='text/css';
-    st.appendChild(document.createTextNode('\n/* brand logo (top-right) */\n#brandLogo{position:fixed;top:10px;right:12px;height:32px;z-index:100000;display:inline-flex;align-items:center;text-decoration:none}\n#brandLogo .logo-wrap{display:inline-flex;align-items:center;justify-content:center;height:100%;padding:4px 8px;background:#2E7D32;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:36px;top:12px;right:16px}}\n'));
+    st.appendChild(document.createTextNode('\n/* brand logo (top-right) */\n#brandLogo{position:fixed;top:10px;right:12px;height:48px;z-index:1;display:inline-flex;align-items:center;text-decoration:none;pointer-events:none}\n#brandLogo .logo-wrap{display:inline-flex;align-items:center;justify-content:center;height:100%;padding:6px 10px;background:#2E7D32;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:56px;top:12px;right:16px}}\n'));
     document.head.appendChild(st);
   }
   function ensureBrandLogo(){
