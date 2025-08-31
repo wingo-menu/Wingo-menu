@@ -306,7 +306,68 @@ function setNoteLabel(text){
     ...Array.from(document.querySelectorAll('#checkout label')).filter(l => /Комментарий/i.test(l.textContent || '')) ].filter(Boolean);
   labelCandidates.forEach(l => { l.textContent = text; });
 }
-function forceShowNoteField(){
+
+
+function injectNoteAfterLabel(){
+  const checkout = el.checkout || document.getElementById('checkout');
+  if (!checkout) return;
+  // find label text that contains "Комментарий"
+  const labels = Array.from(checkout.querySelectorAll('label'));
+  const label = labels.find(l => /Комментарий/i.test((l.textContent||'').trim()));
+  if (!label) { ensureNoteField(); return; }
+  // if textarea already right after label — keep it
+  const next = label.nextElementSibling;
+  if (next && next.tagName === 'TEXTAREA' && next.id === 'coNote') return;
+  // ensure single textarea
+  let ta = checkout.querySelector('#coNote');
+  if (!ta) { ta = document.createElement('textarea'); ta.id = 'coNote'; }
+  ta.setAttribute('rows','3');
+  ta.placeholder = (state.mode === 'delivery')
+    ? 'Комментарий курьеру (как пройти, код домофона...)'
+    : 'Комментарий ресторану (пожелания, уточнения...)';
+  // inline styles to guarantee visibility on iOS/Safari
+  ta.style.width = '100%';
+  ta.style.boxSizing = 'border-box';
+  ta.style.border = '1px solid rgba(0,0,0,.15)';
+  ta.style.borderRadius = '12px';
+  ta.style.padding = '12px 14px';
+  ta.style.margin = '6px 0 12px 0';
+  ta.style.fontSize = '16px';
+  ta.style.minHeight = '60px';
+  // insert right under label
+  label.parentNode.insertBefore(ta, label.nextSibling);
+  el.coNote = ta;
+}
+function ensureNoteField(){
+  // Create #coNote textarea if missing (e.g., in pickup mode markup)
+  if (el.coNote && el.coNote.tagName) return;
+  const checkout = el.checkout || document.getElementById('checkout');
+  if (!checkout) return;
+  // Try to find label for coNote or any label containing "Комментарий"
+  let label = checkout.querySelector('label[for="coNote"]') || Array.from(checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
+  let container = (label && label.closest && label.closest('.field')) ? label.closest('.field') : null;
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'field';
+    // Insert near the label if found, else append to checkout
+    if (label && label.parentNode) {
+      label.parentNode.insertBefore(container, label.nextSibling);
+      container.appendChild(label);
+    } else {
+      checkout.appendChild(container);
+    }
+  }
+  const ta = document.createElement('textarea');
+  ta.id = 'coNote';
+  ta.className = 'input';
+  ta.rows = 3;
+  ta.placeholder = state.mode === 'delivery' 
+    ? 'Комментарий курьеру (как пройти, код домофона...)' 
+    : 'Комментарий ресторану (пожелания, уточнения...)';
+  container.appendChild(ta);
+  el.coNote = ta;
+}
+function forceShowNoteField(){ ensureNoteField();
   if (!el.coNote) return;
   el.coNote.removeAttribute('hidden'); el.coNote.style.display = ''; el.coNote.style.visibility = 'visible';
   const field = el.coNote.closest('.field') || el.coNote.parentElement;
@@ -317,18 +378,19 @@ function forceShowNoteField(){
     if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); p = p.parentElement;
   }
 }
-function updateNoteUIByMode(){
+function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
   else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
 function openCheckout(){
+  injectNoteAfterLabel();
   if (state.geo && state.geo.status === 'unknown') { alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.'); return; }
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
   if(!el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
-  updateNoteUIByMode(); renderCoSummary();
+  ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
 }
 el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
 el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
@@ -341,6 +403,7 @@ el.modeSegment.addEventListener('click', e=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
+  injectNoteAfterLabel();
   if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; el.addressGroup.style.display=''; }
   else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : ''); el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode)); updateNoteUIByMode();
@@ -458,91 +521,3 @@ el.coWhatsApp.onclick = () => {
 };
 
 loadAll();
-
-// --- injected brand logo adjustments (position+contrast) ---
-(function(){
-  function ensureLogoAdjustStyles(){
-    if (document.getElementById('logo-style-2')) return;
-    var st = document.createElement('style'); st.id='logo-style-2'; st.type='text/css';
-    st.appendChild(document.createTextNode("\n/* logo overrides: right corner + visible on white bg */\n#brandLogo{position:fixed;top:10px;right:12px;height:60px;z-index:500;display:inline-flex;align-items:center;text-decoration:none;pointer-events:none}\n@media (min-width:768px){#brandLogo{height:72px;top:12px;right:16px}}\n#brandLogo .logo-shape{\n  display:block;\n  height:100%;\n  aspect-ratio:2461/666;\n  background:#2E7D32; /* brand green */\n  -webkit-mask: url('assets/logo-white.svg') no-repeat center / contain;\n          mask: url('assets/logo-white.svg') no-repeat center / contain;\n}\n"));
-    document.head.appendChild(st);
-  }
-  function upgradeLogoNode(){
-    var a = document.getElementById('brandLogo');
-    if (!a) return;
-    // If we already upgraded, skip
-    if (a.querySelector('.logo-shape')) return;
-    // Replace any <img> with mask-colored shape so it's visible on white bg
-    a.innerHTML = '';
-    var span = document.createElement('span');
-    span.className = 'logo-shape';
-    a.appendChild(span);
-  }
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){ ensureLogoAdjustStyles(); upgradeLogoNode(); });
-  } else {
-    ensureLogoAdjustStyles(); upgradeLogoNode();
-  }
-})();
-
-// --- brand logo (top-right, green bg for white SVG) ---
-(function(){
-  function ensureBrandLogoStyles(){
-    if (document.getElementById('logo-style-3')) return;
-    var st = document.createElement('style'); st.id='logo-style-3'; st.type='text/css';
-    st.appendChild(document.createTextNode('\n/* brand logo (top-right) */\n#brandLogo{position:fixed;top:10px;right:12px;height:60px;z-index:500;display:inline-flex;align-items:center;text-decoration:none;pointer-events:none}\n#brandLogo .logo-wrap{display:inline-flex;align-items:center;justify-content:center;height:100%;padding:6px 10px;background:#2E7D32;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:72px;top:12px;right:16px}}\n'));
-    document.head.appendChild(st);
-  }
-  function ensureBrandLogo(){
-    var a = document.getElementById('brandLogo');
-    if (!a){
-      a = document.createElement('a');
-      a.id = 'brandLogo';
-      a.href = '/';
-      a.setAttribute('aria-label','Wingo Home');
-      document.body.appendChild(a);
-    }
-    // reset inner to a simple green-backed white SVG for maximum visibility
-    a.innerHTML = '';
-    var wrap = document.createElement('span');
-    wrap.className = 'logo-wrap';
-    var img = document.createElement('img');
-    try {
-      // Use BUILD_VERSION for cache-busting if available
-      var v = (typeof BUILD_VERSION !== 'undefined') ? BUILD_VERSION : Date.now().toString();
-      img.src = 'assets/logo-white.svg?v=' + encodeURIComponent(v);
-    } catch(e){
-      img.src = 'assets/logo-white.svg';
-    }
-    img.alt = 'Wingo';
-    img.loading = 'lazy';
-    wrap.appendChild(img);
-    a.appendChild(wrap);
-  }
-  function bootBrandLogo(){
-    ensureBrandLogoStyles();
-    ensureBrandLogo();
-  }
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', bootBrandLogo);
-  } else {
-    bootBrandLogo();
-  }
-})();
-
-(function(){
-  if (!document.getElementById('logo-stack-fix')){
-    var st = document.createElement('style'); st.id='logo-stack-fix'; st.type='text/css';
-    st.appendChild(document.createTextNode('\n/* stack fix: keep modals above brand logo */\n#sheet, #checkout { position: fixed; z-index: 3000 !important; }\n#sheetBackdrop, #coBackdrop { position: fixed; z-index: 2990 !important; }\n'));
-    if (document.head) document.head.appendChild(st); else document.body.appendChild(st);
-  }
-})();
-
-(function(){
-  if (!document.getElementById('modal-contrast-fix')){
-    var st = document.createElement('style'); st.id='modal-contrast-fix'; st.type='text/css';
-    st.appendChild(document.createTextNode('\n/* modal contrast fix: ensure modals are above backdrops and not dim */\n#sheet, #checkout { position: fixed; z-index: 4000 !important; opacity: 1 !important; filter: none !important; }\n#sheetBackdrop, #coBackdrop { position: fixed; z-index: 3990 !important; }\n'));
-    (document.head || document.body).appendChild(st);
-  }
-})();
-
