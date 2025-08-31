@@ -485,3 +485,48 @@ loadAll();
   }
 })();
 
+// --- brand logo (top-right, green bg for white SVG) ---
+(function(){
+  function ensureBrandLogoStyles(){
+    if (document.getElementById('logo-style-3')) return;
+    var st = document.createElement('style'); st.id='logo-style-3'; st.type='text/css';
+    st.appendChild(document.createTextNode('\n/* brand logo (top-right) */\n#brandLogo{position:fixed;top:10px;right:12px;height:32px;z-index:100000;display:inline-flex;align-items:center;text-decoration:none}\n#brandLogo .logo-wrap{display:inline-flex;align-items:center;justify-content:center;height:100%;padding:4px 8px;background:#2E7D32;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}\n#brandLogo img{display:block;height:100%;width:auto}\n@media (min-width:768px){#brandLogo{height:36px;top:12px;right:16px}}\n'));
+    document.head.appendChild(st);
+  }
+  function ensureBrandLogo(){
+    var a = document.getElementById('brandLogo');
+    if (!a){
+      a = document.createElement('a');
+      a.id = 'brandLogo';
+      a.href = '/';
+      a.setAttribute('aria-label','Wingo Home');
+      document.body.appendChild(a);
+    }
+    // reset inner to a simple green-backed white SVG for maximum visibility
+    a.innerHTML = '';
+    var wrap = document.createElement('span');
+    wrap.className = 'logo-wrap';
+    var img = document.createElement('img');
+    try {
+      // Use BUILD_VERSION for cache-busting if available
+      var v = (typeof BUILD_VERSION !== 'undefined') ? BUILD_VERSION : Date.now().toString();
+      img.src = 'assets/logo-white.svg?v=' + encodeURIComponent(v);
+    } catch(e){
+      img.src = 'assets/logo-white.svg';
+    }
+    img.alt = 'Wingo';
+    img.loading = 'lazy';
+    wrap.appendChild(img);
+    a.appendChild(wrap);
+  }
+  function bootBrandLogo(){
+    ensureBrandLogoStyles();
+    ensureBrandLogo();
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bootBrandLogo);
+  } else {
+    bootBrandLogo();
+  }
+})();
+
