@@ -424,9 +424,15 @@ function updateCartBar(){
   // Обновляем сумму в FAB: только число + " ₸"
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
 
+  // Если открыт чекаут — FAB скрыт
+  const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
+
   // Показ/скрытие FAB
-  if (count > 0) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
-  else { el.cartBar.classList.add('hidden'); el.cartBar.style.display='none'; }
+  if (count > 0 && !checkoutOpen) {
+    el.cartBar.classList.remove('hidden'); el.cartBar.style.display='';
+  } else {
+    el.cartBar.classList.add('hidden'); el.cartBar.style.display='none';
+  }
 
   updateShipInfoBar();
 }
@@ -511,7 +517,7 @@ function forceShowNoteField(){ ensureNoteField();
 }
 function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
-  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментаррий ресторану (пожелания, уточнения...)'; }
+  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
@@ -522,9 +528,16 @@ function openCheckout(){
   if(el.coPhone && !el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
   ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
+  updateCartBar(); // скрыть FAB на время чекаута
 }
-el.coClose && (el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); });
-el.coBackdrop && (el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); });
+el.coClose && (el.coClose.onclick = () => { 
+  el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
+  updateCartBar(); // показать FAB снова (если есть позиции)
+});
+el.coBackdrop && (el.coBackdrop.onclick = () => { 
+  el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
+  updateCartBar(); // показать FAB снова
+});
 
 el.modeSegment && el.modeSegment.addEventListener('click', e=>{
   const btn = e.target.closest('.seg'); if(!btn) return;
