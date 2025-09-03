@@ -2,6 +2,8 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const money = v => '₸' + Math.round(v || 0).toLocaleString('ru-RU');
+// FAB amount format: "1 320 ₸"
+const moneyFab = v => Math.round(v||0).toLocaleString('ru-RU') + ' ₸';
 
 const BUILD_VERSION = (() => {
   try {
@@ -36,29 +38,31 @@ function calcDeliveryFee(subtotal){
   if (subtotal < DELIVERY_RULES.T2_LIMIT) return DELIVERY_RULES.FEE_T2;
   return 0;
 }
-function formatDelta(n){ return Math.max(0, Math.ceil(n)).toLocaleString('ru-RU'); }
 function buildDeliveryBannerText(subtotal){
   if (state.mode !== 'delivery' || !state.geo || state.geo.status !== 'inside' || subtotal <= 0) return '';
   if (subtotal < DELIVERY_RULES.T1_LIMIT){
     const left = DELIVERY_RULES.T1_LIMIT - subtotal;
-    return `Доставка 1 499 ₸. Ещё ${formatDelta(left)} ₸ — и доставим за 790 ₸`;
+    return `Доставка 1 499 ₸. Ещё ${Math.ceil(left).toLocaleString('ru-RU')} ₸ — и доставим за 790 ₸`;
   }
   if (subtotal < DELIVERY_RULES.T2_LIMIT){
     const left = DELIVERY_RULES.T2_LIMIT - subtotal;
-    return `Доставка 790 ₸. Ещё ${formatDelta(left)} ₸ — и доставка бесплатно`;
+    return `Доставка 790 ₸. Ещё ${Math.ceil(left).toLocaleString('ru-RU')} ₸ — и доставка бесплатно`;
   }
   return 'Доставка бесплатно';
 }
 
+// --- состояние ---
 const state = {
   items: [], categories: [], conf: null, activeCategory: null,
   cart: JSON.parse(localStorage.getItem('wingo.cart') || '[]'),
   geo: JSON.parse(localStorage.getItem('wingo.geo') || '{"status":"unknown","inside":false}'),
   mode: 'delivery', sheetItem: null, sheetQty: 1,
   select: { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} },
-  drinkOptions: []
+  drinkOptions: [],
+  geoWarnedOnce: false
 };
 
+// --- элементы ---
 const el = {
   tabs: $('#tabs'), grid: $('#grid'), sheet: $('#sheet'),
   sheetBackdrop: $('#sheetBackdrop'), sheetClose: $('#sheetClose'),
@@ -75,6 +79,7 @@ const el = {
   deliveryMode: $('#deliveryMode'), modeSegment: $('#modeSegment')
 };
 
+// --- стили ---
 function ensureUIStyles(){
   if (document.getElementById('wingo-ui-style')) return;
   const css = `
@@ -92,28 +97,31 @@ function ensureUIStyles(){
   .btn-green:hover { filter:brightness(0.95); }
   .btn-round { border-radius:9999px !important; aspect-ratio:1 / 1; width:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
-  /* FAB корзина в правом нижнем углу */
-  #cartBar.fab-cart { position: fixed; right: 16px; bottom: 76px; z-index: 1000;
-    display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px;
-    background:#2E7D32; color:#fff; border-radius: 9999px; box-shadow: 0 10px 20px rgba(0,0,0,0.18);
-    cursor: pointer; user-select: none; }
+  /* FAB корзина — строго в правом нижнем углу (над баннером доставки) */
+  #cartBar.fab-cart { position: fixed; right: 16px; bottom: 76px;
+    z-index: 1000; display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 16px; background:#2E7D32; color:#fff;
+    border-radius: 9999px; box-shadow: 0 10px 22px rgba(0,0,0,0.18); cursor: pointer; user-select: none; }
   #cartBar.fab-cart.hidden { display: none !important; }
-  #cartBar.fab-cart .cart-ic { font-size: 18px; line-height: 1; }
-  #cartBar.fab-cart #cartCount { display:none; }
-  #cartBar.fab-cart #cartTotal { font-weight: 700; }
+  #cartBar.fab-cart .cart-ic { width:18px; height:18px; display:inline-block; }
+  #cartBar.fab-cart .cart-ic svg { width:100%; height:100%; display:block; fill:#fff; }
+  #cartBar.fab-cart #cartCount { display:none !important; }
+  #cartBar.fab-cart .cart-fab-total { font-weight:700; font-size:15px; }
 
-  /* Нижний баннер с условиями доставки */
+  /* Нижний маленький FAB-баннер условий доставки */
   #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 999;
-    display: none; align-items: center; gap:10px; padding: 12px 14px;
-    background: #f3f4f6; color:#111827; border:1px solid rgba(0,0,0,.08); border-radius: 9999px;
-    box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+    display: none; align-items: center; gap:10px; padding: 10px 12px;
+    background: #f3f4f6; color:#111827; border:1px solid rgba(0,0,0,.08);
+    border-radius: 9999px; box-shadow: 0 6px 16px rgba(0,0,0,.12); }
   #shipInfoBar.show { display:flex; }
-  #shipInfoBar .i-btn { width: 24px; height: 24px; border-radius: 9999px; border:1px solid rgba(0,0,0,.15);
+  #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(0,0,0,0.15);
     display:inline-flex; align-items:center; justify-content:center; background:#fff; cursor:pointer; font-weight:700; }
-  #shipInfoBar .txt { flex:1; font-size: 14px; }
+  #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
+
+// --- помощники для UI ---
 function insertSeparatorBefore(elm){
   if (!elm || !elm.parentNode) return;
   const prev = elm.previousElementSibling;
@@ -138,19 +146,38 @@ function ensureNoticeVisible(elm) {
   const ho = getHeaderOffsetPx(); if (ho) { setTimeout(() => { window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' }); }, 250); }
 }
 
+// --- единая проверка гео (только один alert за сессию) ---
+function requireGeoChecked(){
+  if (!state.geo || state.geo.status === 'unknown'){
+    if (!state.geoWarnedOnce) {
+      state.geoWarnedOnce = true;
+      alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
+    }
+    return false;
+  }
+  return true;
+}
+
 // --- новые элементы UI: FAB корзина + баннер доставки ---
 function ensureCartFAB(){
-  if (!el.cartBar) return;
+  if (!el.cartBar || el.cartBar.dataset.fabInited === '1') return;
+  el.cartBar.dataset.fabInited = '1';
   el.cartBar.classList.add('fab-cart');
-  // иконка
-  if (!el.cartBar.querySelector('.cart-ic')) {
-    const ic = document.createElement('span'); ic.className = 'cart-ic'; ic.textContent = '🛒';
-    el.cartBar.insertBefore(ic, el.cartBar.firstChild);
-  }
-  // открыть чекаут по клику на пилюлю
-  el.cartBar.addEventListener('click', () => openCheckout());
-  // скрываем старую «зону открытия», если она перекрывает
-  if (el.cartOpenArea) el.cartOpenArea.style.pointerEvents = 'none';
+
+  // Собираем собственное содержимое FAB (только иконка + сумма)
+  el.cartBar.innerHTML = `
+    <span class="cart-ic" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21L5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
+    </span>
+    <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
+  `;
+  el.cartFabTotal = document.getElementById('cartFabTotal');
+
+  // Клик по пилюле — открыть чекаут
+  el.cartBar.addEventListener('click', () => { if (!requireGeoChecked()) return; openCheckout(); });
+
+  // Старая зона открытия не нужна
+  if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
 }
 function ensureShipInfoBar(){
   if (document.getElementById('shipInfoBar')) {
@@ -174,10 +201,13 @@ function updateShipInfoBar(){
   const sub = calcSubtotal();
   const shouldShow = state.mode==='delivery' && state.geo && state.geo.status==='inside' && sub>0;
   if (!shouldShow){ el.shipInfoBar.classList.remove('show'); el.shipInfoText.textContent=''; return; }
-  el.shipInfoText.textContent = buildDeliveryBannerText(sub) || '';
-  el.shipInfoBar.classList.toggle('show', !!el.shipInfoText.textContent);
+  const txt = buildDeliveryBannerText(sub);
+  if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
+  el.shipInfoText.textContent = txt;
+  el.shipInfoBar.classList.add('show');
 }
 
+// --- загрузка ---
 async function loadAll() {
   try {
     const [m, c] = await Promise.all([ fetch(`menu.json?v=${BUILD_VERSION}`), fetch(`config.json?v=${BUILD_VERSION}`) ]);
@@ -364,14 +394,14 @@ function buildIncludedDipsUI(item){
   el.dipsLeftHint.textContent = max>0 ? `Осталось распределить: ${max}` : 'Распределено';
 }
 
-el.sheetClose.onclick = () => closeSheet();
-el.sheetBackdrop.onclick = () => closeSheet();
+el.sheetClose && (el.sheetClose.onclick = () => closeSheet());
+el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
 function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
 
-el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent = state.sheetQty; } };
-el.qtyPlus.onclick = () => { state.sheetQty++; el.qtyValue.textContent = state.sheetQty; };
+el.qtyMinus && (el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent = state.sheetQty; } });
+el.qtyPlus && (el.qtyPlus.onclick = () => { state.sheetQty++; el.qtyValue.textContent = state.sheetQty; });
 
-el.addToCart.onclick = () => {
+el.addToCart && (el.addToCart.onclick = () => {
   const it = state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
   const drinkKeyPart = (() => { if (state.select.drink) return state.select.drink;
@@ -385,15 +415,19 @@ el.addToCart.onclick = () => {
     dips_included: it.dips_included || 0, dips_breakdown: state.select.dipCounts };
   if(ex){ ex.qty += state.sheetQty; } else { state.cart.push(itemPayload); }
   localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); updateCartBar(); closeSheet();
-};
+});
 
 function updateCartBar(){
   const count = state.cart.reduce((a,c)=>a+c.qty,0);
   const subtotal = calcSubtotal();
-  el.cartCount.textContent = count + ' поз.'; el.cartTotal.textContent = money(subtotal);
-  // показать/скрыть FAB
+
+  // Обновляем сумму в FAB: только число + " ₸"
+  if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
+
+  // Показ/скрытие FAB
   if (count > 0) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
   else { el.cartBar.classList.add('hidden'); el.cartBar.style.display='none'; }
+
   updateShipInfoBar();
 }
 el.openCheckout && (el.openCheckout.onclick = () => openCheckout());
@@ -477,25 +511,25 @@ function forceShowNoteField(){ ensureNoteField();
 }
 function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
-  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
+  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментаррий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
 function openCheckout(){
   injectNoteAfterLabel();
-  if (state.geo && state.geo.status === 'unknown') { alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.'); return; }
+  if (!requireGeoChecked()) return;
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
-  if(!el.coPhone.value){ el.coPhone.value = '+7'; }
+  if(el.coPhone && !el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
   ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
 }
-el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
-el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); };
+el.coClose && (el.coClose.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); });
+el.coBackdrop && (el.coBackdrop.onclick = () => { el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); });
 
-el.modeSegment.addEventListener('click', e=>{
+el.modeSegment && el.modeSegment.addEventListener('click', e=>{
   const btn = e.target.closest('.seg'); if(!btn) return;
   const mode = btn.getAttribute('data-mode');
-  if(mode==='delivery' && state.geo && state.geo.status==='unknown'){ alert('Сначала проверьте доступность доставки — кнопка «Проверить доставку».'); return; }
+  if(mode==='delivery' && !requireGeoChecked()) return;
   if(mode==='delivery' && state.geo.status==='outside'){ alert('Вы вне зоны доставки. Доступен самовывоз.'); return; }
   state.mode = mode; updateModeUI();
 });
@@ -593,7 +627,6 @@ el.geoBtn && (el.geoBtn.onclick = () => {
 
 function makeWAOrderLink(){
   const phone = state.conf.whatsapp_number;
-
   const lines = state.cart.map(c=>{
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
@@ -630,16 +663,15 @@ function makeWAOrderLink(){
   const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : '')); 
   const addrEnc = encodeURIComponent(addr);
   const note = encodeURIComponent((el.coNote.value||'').trim());
-
   const deliveryLine = (state.mode==='delivery' && state.geo && state.geo.status==='inside') ? `%0AДоставка: ${delivery} ₸` : '';
 
   const text = `Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸${deliveryLine}%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}%0AКомментарий: ${note}`;
   return `https://wa.me/${phone}?text=${text}${state.conf.utm}`;
 }
-el.coWhatsApp.onclick = () => {
+el.coWhatsApp && (el.coWhatsApp.onclick = () => {
   if(state.cart.length===0){ alert('Сначала добавьте позиции в корзину'); return; }
-  if (state.geo && state.geo.status === 'unknown') { alert('Пожалуйста, проверьте доступность доставки — кнопка «Проверить доставку».'); return; }
+  if (!requireGeoChecked()) return;
   try{ window.open(makeWAOrderLink(), '_blank', 'noopener'); }catch(e){}
-};
+});
 
 loadAll();
