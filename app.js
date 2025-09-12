@@ -205,7 +205,28 @@ function insertSeparatorBefore(elm){
     return;
   }
   if (prev && prev.classList && prev.classList.contains('section-sep')) return;
-  const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);
+  if (!elm.dataset.sep) { elm.dataset.sep='1'; const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);}
+}
+function clearAutoSeparators(){
+  document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove());
+}
+function normalizeSeparators(){
+  const root = document.getElementById('sheet');
+  if (!root) return;
+  const list = Array.from(root.querySelectorAll('hr.section-sep'));
+  // remove consecutive
+  for (let i = list.length - 2; i >= 0; i--) {
+    const cur = list[i], nxt = list[i+1];
+    if (cur && nxt && cur.nextElementSibling === nxt) {
+      if (nxt.classList.contains('auto')) nxt.remove();
+      else if (cur.classList.contains('auto')) cur.remove();
+    }
+  }
+  // remove leading/trailing within sheet content
+  const first = root.querySelector('#sheet .section-sep');
+  if (first && first === root.firstElementChild) first.remove();
+  const last = root.querySelector('#sheet .section-sep:last-of-type');
+  if (last && last === root.lastElementChild) last.remove();
 }
 function dedupeSeparators(){
   const seps = Array.from(document.querySelectorAll('#sheet .section-sep')); let prev = null;
@@ -226,11 +247,30 @@ function ensureNoticeVisible(elm) {
 }
 
 // --- единая проверка гео (только один alert за сессию) ---
+function ensureUnlockedIfNoLayers(){
+  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
+  const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
+  const shipOpen = document.body.classList.contains('ship-open');
+  if (!sheetOpen && !checkoutOpen && !shipOpen) {
+    state._lockCount = 0;
+    document.body.classList.remove('body-lock');
+    const prev = state._scrollY || 0;
+    window.scrollTo(0, prev);
+    document.documentElement.style.removeProperty('scroll-behavior');
+  }
+}
+function requireGeoCheckedSafe(){
+  const ok = requireGeoChecked();
+  if (!ok){ ensureUnlockedIfNoLayers(); }
+  return ok;
+}
 function requireGeoChecked(){
   if (!state.geo || state.geo.status === 'unknown'){
     if (!state.geoWarnedOnce) {
       state.geoWarnedOnce = true;
       alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
+      // страховка: снять блокировку скролла если есть
+      document.body.classList.remove('body-lock'); document.body.style.top=''; window.scrollTo(0,0);
     }
     return false;
   }
@@ -269,7 +309,7 @@ function ensureShipInfoBar(){
     document.body.appendChild(sheet); document.body.appendChild(backdrop);
 
     el.shipSheet = sheet; el.shipSheetBackdrop = backdrop;
-    const close = () => { document.body.classList.remove('ship-open'); el.shipSheetBackdrop.classList.remove('show'); unlockBodyScroll(); };
+    const close = () => { document.body.classList.remove('ship-open'); el.shipSheetBackdrop.classList.remove('show'); unlockBodyScroll(); ensureUnlockedIfNoLayers(); };
     sheet.querySelector('.cls').onclick = close;
     backdrop.onclick = close;
   } else {
@@ -326,7 +366,7 @@ function ensureCartFAB(){
   el.cartBar.addEventListener('click', () => {
     // если открыт лист товара — закрываем его перед переходом к чекауту
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
-    if (!requireGeoChecked()) { return; }
+    if (!requireGeoCheckedSafe()) { return; }
     openCheckout();
   });
 
@@ -448,6 +488,9 @@ function buildDrinkUI(item){
 }
 
 function openSheet(item){
+  clearAutoSeparators();
+  // очистить все автосепараторы перед построением
+  document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove());
   state.sheetItem = item; state.sheetQty = 1;
   state.select = { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} };
   el.sheetImg.src = item.image || 'images/placeholder.png';
@@ -492,6 +535,14 @@ function openSheet(item){
   } else { el.dipsBlock.style.display='none'; el.dipsChoice.innerHTML=''; el.dipsLeftHint.textContent=''; }
 
   dedupeSeparators();
+  // финальная нормализация сепараторов
+  (function(){
+    const seps = Array.from(document.querySelectorAll('#sheet hr.section-sep'));
+    seps.forEach((s,i)=>{
+      if(i===0 || i===seps.length-1) { if(s.classList.contains('auto')) s.remove(); }
+      const prev=s.previousElementSibling; if(prev && prev.tagName==='HR') { if(s.classList.contains('auto')) s.remove(); }
+    });
+  })();
 
   // скрыть баннер при открытом листе товара и залочить фон
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
@@ -500,6 +551,7 @@ function openSheet(item){
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 
   updateShipInfoBar();
+  ensureUnlockedIfNoLayers();
 }
 function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
 
@@ -571,8 +623,9 @@ function updateCartBar(){
   }
 
   updateShipInfoBar();
+  ensureUnlockedIfNoLayers();
 }
-el.openCheckout && (el.openCheckout.onclick = () => openCheckout());
+el.openCheckout && (el.openCheckout.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); });
 el.cartOpenArea && (el.cartOpenArea.onclick = () => openCheckout());
 
 function setNoteLabel(text){
@@ -671,6 +724,7 @@ el.coBackdrop && (el.coBackdrop.onclick = () => {
   unlockBodyScroll();
   updateCartBar();
   updateShipInfoBar();
+  ensureUnlockedIfNoLayers();
 });
 
 el.modeSegment && el.modeSegment.addEventListener('click', e=>{
@@ -779,6 +833,7 @@ function updateGeoUI(){
   else if(g.status==='denied'){ b.className='geo-banner bad'; b.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
   else { b.className='geo-banner'; b.textContent=''; }
   updateShipInfoBar();
+  ensureUnlockedIfNoLayers();
 }
 
 el.geoBtn && (el.geoBtn.onclick = () => {
@@ -843,8 +898,21 @@ function makeWAOrderLink(){
 }
 el.coWhatsApp && (el.coWhatsApp.onclick = () => {
   if(state.cart.length===0){ alert('Сначала добавьте позиции в корзину'); return; }
-  if (!requireGeoChecked()) return;
+  if (!requireGeoCheckedSafe()) return;
   try{ window.open(makeWAOrderLink(), '_blank', 'noopener'); }catch(e){}
 });
 
 loadAll();
+
+
+// --- safety unlock if no overlays visible ---
+function ensureNoStaleLock(){
+  const anyOpen = (el.sheet && el.sheet.classList.contains('show')) ||
+                  (el.checkout && el.checkout.classList.contains('show')) ||
+                  (document.getElementById('shipSheet') && document.getElementById('shipSheet').classList.contains('show'));
+  if(!anyOpen && document.body.classList.contains('body-lock')){
+    document.body.classList.remove('body-lock');
+    document.body.style.top='';
+  }
+}
+setInterval(ensureNoStaleLock, 2000);
