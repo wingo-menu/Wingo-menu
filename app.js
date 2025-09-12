@@ -1,12 +1,12 @@
 // ===================== WINGO MENU app.js =====================
 // Финальная версия с исправлениями:
-// - Фиксированный чекаут (фон не ездит вертикально и горизонтально)
+// - Баннер «как у Додо»: понятные формулировки "…и доставим за/бесплатно"
+// - Фиксированный чекаут и лист товара: фон не ездит, локальный скролл, без горизонтальных «съездов»
 // - Рабочие кнопки +/- в корзине (делегирование событий)
-// - Зелёный крестик поверх карточки
-// - Только одна линия-разделитель в позициях (очистка и нормализация)
+// - Только одна линия-разделитель в карточках (очистка и нормализация)
 // - Без зависаний после алертов: безопасная проверка гео + сторож разблокировки
 // - Логика доставки сохранена (от 5 000 ₸ — бесплатно)
-// - Компактный нижний баннер условий доставки «как у Додо» + нижний шит вместо alert
+// - FAB без «призрака» и правильные z-index
 // ===============================================================
 
 // ---------------- helpers ----------------
@@ -54,23 +54,23 @@ function calcDeliveryFee(subtotal){
   return 0; // от 5 000 ₸ — бесплатно
 }
 
-// компактный текст для баннера как у Додо
+// «как у Додо» (одна строка, ясно и по делу)
 function buildDeliveryBannerTextCompact(subtotal){
   if (state.mode !== 'delivery' || !state.geo || state.geo.status !== 'inside' || subtotal <= 0) return '';
   const fmt = n => Math.ceil(n).toLocaleString('ru-RU');
   if (subtotal < DELIVERY_RULES.LIMIT1){
     const left = DELIVERY_RULES.LIMIT1 - subtotal;
-    return `Доставка ${DELIVERY_RULES.FEE1.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸`;
+    return `Доставка ${DELIVERY_RULES.FEE1.toLocaleString('ru-RU')} ₸. Ещё ${fmt(left)} ₸, и доставим за ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸`;
   }
   if (subtotal < DELIVERY_RULES.LIMIT2){
     const left = DELIVERY_RULES.LIMIT2 - subtotal;
-    return `Доставка ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸`;
+    return `Доставка ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸. Ещё ${fmt(left)} ₸, и доставим за ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸`;
   }
   if (subtotal < DELIVERY_RULES.LIMIT3){
     const left = DELIVERY_RULES.LIMIT3 - subtotal;
-    return `Доставка ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — бесплатно`;
+    return `Доставка ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸. Ещё ${fmt(left)} ₸, и доставим бесплатно`;
   }
-  return 'Доставка бесплатно';
+  return 'Доставим бесплатно';
 }
 
 // ---------------- состояние ----------------
@@ -153,7 +153,7 @@ function ensureUIStyles(){
     display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
   #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  /* Нижний шит с условиями — поверх FAB. Делаем свой скролл, не двигая фон */
+  /* Нижний шит с условиями — поверх FAB. Свой скролл, фон статичен */
   #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 1100; touch-action:none; overscroll-behavior: contain; }
   #shipSheet { position:fixed; left:0; right:0; bottom:-420px; background:#fff; border-radius:16px 16px 0 0;
     box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 1110; transition: transform .25s ease, bottom .25s ease;
@@ -167,15 +167,22 @@ function ensureUIStyles(){
   #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
   .ship-open #shipSheet { bottom:0; }
 
-  /* Лист товара и чекаут: собственный скролл */
-  #sheet.show, #checkout.show { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* Карточка товара и чекаут: фиксированные слои с локальным скроллом */
+  #sheet.show, #checkout.show {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: none;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
 
   /* Кнопка закрытия в листе товара поверх контента */
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
-
-  /* Стабильность окна чекаута */
-  #checkout { overscroll-behavior: contain; }
-  #checkout.show { position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overflow-x: hidden; touch-action: pan-y; will-change: transform; transform: translateZ(0); backface-visibility: hidden; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -358,7 +365,7 @@ function updateShipInfoBar(){
     return;
   }
 
-  const txt = buildDeliveryBannerTextCompact(subtotal = sub);
+  const txt = buildDeliveryBannerTextCompact(sub);
   if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
 
   el.shipInfoText.textContent = txt;
@@ -374,7 +381,7 @@ function ensureCartFAB(){
   // содержимое FAB (иконка + сумма)
   el.cartBar.innerHTML = `
     <span class="cart-ic" aria-hidden="true">
-      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21L5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
+      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21Л5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
@@ -705,12 +712,13 @@ function forceShowNoteField(){ ensureNoteField();
   let p = el.coNote.parentElement;
   while (p && p !== el.checkout) {
     if (p && p.style && (p.style.display === 'none' || p.style.visibility === 'hidden')) { p.style.display = ''; p.style.visibility = 'visible'; }
-    if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); p = p.parentElement;
+    if (p && p.classList && п.classList.contains('hidden')) p.classList.remove('hidden');
+    p = p.parentElement;
   }
 }
 function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
-  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарний ресторану (пожелания, уточнения...)'; }
+  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
@@ -863,7 +871,7 @@ function makeWAOrderLink(){
     if(c.garnish) extras.push('гарнир: '+c.garnish);
     if (c.drinks_included > 1) {
       const pairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
-      if (pairs.length) extras.push('напитки: '+pairs.join(', ')); else добавлю: extras.push('напитки: выбрать при звонке');
+      if (pairs.length) extras.push('напитки: '+pairs.join(', ')); else extras.push('напитки: выбрать при звонке');
     } else if (c.drinks_included === 1 && c.drink) { extras.push('напиток: '+c.drink); }
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
