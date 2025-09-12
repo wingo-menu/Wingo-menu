@@ -156,6 +156,12 @@ function ensureUIStyles(){
   #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
   .ship-open #shipSheet { bottom:0; }
 
+  /* Кнопка закрытия в листе товара поверх контента */
+  #sheetClose { position: absolute; top: 10px; right: 10px; z-index: 1200; }
+
+  /* Стабильность окна чекаута */
+  #checkout.show { will-change: transform; transform: translateZ(0); backface-visibility: hidden; }
+
   /* Лист товара и чекаут: собственный скролл */
   #sheet.show, #checkout.show { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   `;
@@ -192,7 +198,12 @@ function unlockBodyScroll(){
 // --- помощники для UI ---
 function insertSeparatorBefore(elm){
   if (!elm || !elm.parentNode) return;
-  const prev = elm.previousElementSibling;
+  // walk back to find previous visible element sibling
+  let prev = elm.previousElementSibling;
+  while (prev && prev.nodeType===1 && prev.tagName==='HR' && prev.classList.contains('section-sep') && prev.classList.contains('auto')) {
+    // already an auto-separator directly before
+    return;
+  }
   if (prev && prev.classList && prev.classList.contains('section-sep')) return;
   const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);
 }
@@ -312,7 +323,12 @@ function ensureCartFAB(){
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
   // клик — открыть чекаут
-  el.cartBar.addEventListener('click', () => { if (!requireGeoChecked()) return; openCheckout(); });
+  el.cartBar.addEventListener('click', () => {
+    // если открыт лист товара — закрываем его перед переходом к чекауту
+    if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
+    if (!requireGeoChecked()) { return; }
+    openCheckout();
+  });
 
   // старая зона открытия не нужна
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
@@ -715,6 +731,30 @@ function renderCoSummary(){
 
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
+
+  if (!el._summaryBound) {
+    el._summaryBound = true;
+    el.coSummary.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      const k = btn.getAttribute('data-k');
+      if (!k) return;
+      const isMinus = btn.classList.contains('minus');
+      const isPlus = btn.classList.contains('plus');
+      const idx = state.cart.findIndex(c=>c.key===k);
+      if (idx === -1) return;
+      if (isMinus) {
+        if (state.cart[idx].qty > 1) state.cart[idx].qty--; else state.cart.splice(idx,1);
+      } else if (isPlus) {
+        state.cart[idx].qty++;
+      } else {
+        return;
+      }
+      localStorage.setItem('wingo.cart', JSON.stringify(state.cart));
+      renderCoSummary();
+      updateCartBar();
+    });
+  }
 
   el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k);
