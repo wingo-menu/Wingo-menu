@@ -42,20 +42,22 @@ function calcDeliveryFee(subtotal){
   if (subtotal < DELIVERY_RULES.LIMIT3) return DELIVERY_RULES.FEE3;
   return 0;
 }
-function buildDeliveryBannerText(subtotal){
+
+// компактный текст для баннера как у Додо
+function buildDeliveryBannerTextCompact(subtotal){
   if (state.mode !== 'delivery' || !state.geo || state.geo.status !== 'inside' || subtotal <= 0) return '';
   const fmt = n => Math.ceil(n).toLocaleString('ru-RU');
   if (subtotal < DELIVERY_RULES.LIMIT1){
     const left = DELIVERY_RULES.LIMIT1 - subtotal;
-    return `Доставка 1 490 ₸. Ещё ${fmt(left)} ₸ — и доставим за 990 ₸`;
+    return `Доставка ${DELIVERY_RULES.FEE1.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸`;
   }
   if (subtotal < DELIVERY_RULES.LIMIT2){
     const left = DELIVERY_RULES.LIMIT2 - subtotal;
-    return `Доставка 990 ₸. Ещё ${fmt(left)} ₸ — и доставим за 490 ₸`;
+    return `Доставка ${DELIVERY_RULES.FEE2.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸`;
   }
   if (subtotal < DELIVERY_RULES.LIMIT3){
     const left = DELIVERY_RULES.LIMIT3 - subtotal;
-    return `Доставка 490 ₸. Ещё ${fmt(left)} ₸ — и доставка бесплатно`;
+    return `Доставка ${DELIVERY_RULES.FEE3.toLocaleString('ru-RU')} ₸ • Ещё ${fmt(left)} ₸ — бесплатно`;
   }
   return 'Доставка бесплатно';
 }
@@ -110,22 +112,38 @@ function ensureUIStyles(){
   #cartBar.fab-cart { position: fixed; right: 16px; bottom: 76px;
     z-index: 1000; display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 16px; background:#2E7D32; color:#fff;
-    border-radius: 9999px; box-shadow: 0 10px 22px rgba(0,0,0,0.18); cursor: pointer; user-select: none; }
+    border-radius: 9999px; box-shadow: 0 10px 22px rgba(0,0,0,0.18); cursor: pointer; user-select: none;
+    will-change: transform; transform: translateZ(0); }
   #cartBar.fab-cart.hidden { display: none !important; }
   #cartBar.fab-cart .cart-ic { width:18px; height:18px; display:inline-block; }
   #cartBar.fab-cart .cart-ic svg { width:100%; height:100%; display:block; fill:#fff; }
   #cartBar.fab-cart #cartCount { display:none !important; }
   #cartBar.fab-cart .cart-fab-total { font-weight:700; font-size:15px; }
 
-  /* Нижний маленький FAB-баннер условий доставки */
-  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 999;
+  /* Нижний компактный баннер условий доставки (тёмный как у Додо) */
+  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 900;
     display: none; align-items: center; gap:10px; padding: 10px 12px;
-    background: #f3f4f6; color:#111827; border:1px solid rgba(0,0,0,.08);
-    border-radius: 9999px; box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+    background: #111827; color:#F9FAFB; border:1px solid rgba(255,255,255,.08);
+    border-radius: 9999px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
+    will-change: transform; transform: translateZ(0); }
   #shipInfoBar.show { display:flex; }
-  #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(0,0,0,0.15);
-    display:inline-flex; align-items:center; justify-content:center; background:#fff; cursor:pointer; font-weight:700; }
+  #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(255,255,255,0.25);
+    display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
   #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #shipInfoBar .txt .dot{padding:0 6px;opacity:.45}
+
+  /* Нижний шит с условиями */
+  #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 950; }
+  #shipSheet { position:fixed; left:0; right:0; bottom:-420px; background:#fff; border-radius:16px 16px 0 0;
+    box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 960; transition: transform .25s ease, bottom .25s ease; }
+  #shipSheet .hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  #shipSheet .hd .ttl { font-weight:700; font-size:16px; }
+  #shipSheet .hd .cls { border:none; background:#111827; color:#fff; width:28px; height:28px; border-radius:9999px; cursor:pointer; }
+  #shipSheet .tbl { width:100%; border-collapse:collapse; font-size:14px; margin-top:4px; }
+  #shipSheet .tbl td { padding:10px 6px; border-bottom:1px solid rgba(0,0,0,.06); }
+  #shipSheet.show + #shipSheetBackdrop,
+  #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
+  .ship-open #shipSheet { bottom:0; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -167,7 +185,78 @@ function requireGeoChecked(){
   return true;
 }
 
-// --- новые элементы UI: FAB корзина + баннер доставки ---
+// --- нижний баннер + нижний шит условий (без alert) ---
+function ensureShipInfoBar(){
+  // баннер
+  if (!document.getElementById('shipInfoBar')) {
+    const bar = document.createElement('div'); bar.id = 'shipInfoBar';
+    bar.innerHTML = `<button class="i-btn" aria-label="Условия" type="button">i</button><div class="txt"></div>`;
+    document.body.appendChild(bar);
+  }
+  el.shipInfoBar = document.getElementById('shipInfoBar');
+  el.shipInfoText = el.shipInfoBar.querySelector('.txt');
+  el.shipInfoBtn = el.shipInfoBar.querySelector('.i-btn');
+
+  // нижний шит
+  if (!document.getElementById('shipSheet')) {
+    const sheet = document.createElement('div'); sheet.id = 'shipSheet';
+    sheet.innerHTML = `
+      <div class="hd">
+        <div class="ttl">Условия доставки</div>
+        <button class="cls" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <table class="tbl" aria-label="Тарифы доставки">
+        <tbody>
+          <tr><td>До 1 800 ₸</td><td style="text-align:right">1 490 ₸</td></tr>
+          <tr><td>1 800–2 499 ₸</td><td style="text-align:right">990 ₸</td></tr>
+          <tr><td>2 500–4 999 ₸</td><td style="text-align:right">490 ₸</td></tr>
+          <tr><td>От 5 000 ₸</td><td style="text-align:right">бесплатно</td></tr>
+        </tbody>
+      </table>`;
+    const backdrop = document.createElement('div'); backdrop.id = 'shipSheetBackdrop';
+    document.body.appendChild(sheet); document.body.appendChild(backdrop);
+
+    el.shipSheet = sheet; el.shipSheetBackdrop = backdrop;
+    const close = () => { document.body.classList.remove('ship-open'); el.shipSheetBackdrop.classList.remove('show'); };
+    sheet.querySelector('.cls').onclick = close;
+    backdrop.onclick = close;
+  } else {
+    el.shipSheet = document.getElementById('shipSheet');
+    el.shipSheetBackdrop = document.getElementById('shipSheetBackdrop');
+  }
+
+  el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); };
+}
+
+function updateShipInfoBar(){
+  ensureShipInfoBar();
+  ensureCartFAB();
+
+  const sub = calcSubtotal();
+  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
+  const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
+
+  const shouldShow = state.mode==='delivery'
+    && state.geo && state.geo.status==='inside'
+    && sub>0
+    && !sheetOpen
+    && !checkoutOpen;
+
+  if (!shouldShow){
+    el.shipInfoBar.classList.remove('show');
+    el.shipInfoText.textContent='';
+    return;
+  }
+
+  const txt = buildDeliveryBannerTextCompact(sub);
+  if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
+
+  // однострочно, без переноса, с точкой-сепаратором
+  el.shipInfoText.textContent = txt;
+  el.shipInfoBar.classList.add('show');
+}
+
+// --- новые элементы UI: FAB корзина ---
 function ensureCartFAB(){
   if (!el.cartBar || el.cartBar.dataset.fabInited === '1') return;
   el.cartBar.dataset.fabInited = '1';
@@ -187,33 +276,6 @@ function ensureCartFAB(){
 
   // старая зона открытия не нужна
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
-}
-function ensureShipInfoBar(){
-  if (document.getElementById('shipInfoBar')) {
-    el.shipInfoBar = document.getElementById('shipInfoBar');
-    el.shipInfoText = el.shipInfoBar.querySelector('.txt');
-    el.shipInfoBtn = el.shipInfoBar.querySelector('.i-btn');
-    return;
-  }
-  const bar = document.createElement('div'); bar.id = 'shipInfoBar';
-  bar.innerHTML = `<div class="i-btn" aria-label="Условия" role="button">i</div><div class="txt"></div>`;
-  document.body.appendChild(bar);
-  el.shipInfoBar = bar;
-  el.shipInfoText = bar.querySelector('.txt');
-  el.shipInfoBtn = bar.querySelector('.i-btn');
-  el.shipInfoBtn.onclick = ()=>{
-    alert('Условия доставки:\n\n— До 1 800 ₸: доставка 1 490 ₸\n— 1 800–2 499 ₸: доставка 990 ₸\n— 2 500–4 999 ₸: доставка 490 ₸\n— От 5 000 ₸: доставка бесплатно');
-  };
-}
-function updateShipInfoBar(){
-  ensureShipInfoBar(); ensureCartFAB();
-  const sub = calcSubtotal();
-  const shouldShow = state.mode==='delivery' && state.geo && state.geo.status==='inside' && sub>0;
-  if (!shouldShow){ el.shipInfoBar.classList.remove('show'); el.shipInfoText.textContent=''; return; }
-  const txt = buildDeliveryBannerText(sub);
-  if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
-  el.shipInfoText.textContent = txt;
-  el.shipInfoBar.classList.add('show');
 }
 
 // --- загрузка ---
@@ -375,7 +437,14 @@ function openSheet(item){
 
   dedupeSeparators();
 
-  el.cartBar.classList.add('hidden'); el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
+  // скрыть FAB и баннер доставки при открытом листе товара
+  if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
+  el.cartBar.classList.add('hidden');
+
+  el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
+
+  // на всякий случай — пересчёт видимости баннера
+  updateShipInfoBar();
 }
 function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
 
@@ -405,7 +474,11 @@ function buildIncludedDipsUI(item){
 
 el.sheetClose && (el.sheetClose.onclick = () => closeSheet());
 el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
-function closeSheet(){ el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true'); el.cartBar.classList.remove('hidden'); }
+function closeSheet(){
+  el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
+  el.cartBar.classList.remove('hidden'); // вернуть FAB
+  updateShipInfoBar(); // вернуть баннер, если нужно
+}
 
 el.qtyMinus && (el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent = state.sheetQty; } });
 el.qtyPlus && (el.qtyPlus.onclick = () => { state.sheetQty++; el.qtyValue.textContent = state.sheetQty; });
@@ -529,14 +602,17 @@ function openCheckout(){
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
   ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
   updateCartBar(); // скрыть FAB на время чекаута
+  updateShipInfoBar(); // скрыть баннер на время чекаута
 }
 el.coClose && (el.coClose.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
   updateCartBar(); // показать FAB снова
+  updateShipInfoBar(); // вернуть баннер при необходимости
 });
 el.coBackdrop && (el.coBackdrop.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
   updateCartBar();
+  updateShipInfoBar();
 });
 
 el.modeSegment && el.modeSegment.addEventListener('click', e=>{
