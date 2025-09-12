@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=21" />
+  <!-- Автообновление версии на GitHub Pages -->
+  <script src="version-probe.js" defer></script>
   <script defer src="app.js?v=1757695002"></script>
 </head>
 <body>
@@ -48,7 +50,7 @@
 
         <div class="opt-block" id="dipsBlock">
           <div class="opt-title">Дип-соусы</div>
-          <div class="opt-hint" id="dipsInfo"></div>
+          <div class="opt-hинt" id="dipsInfo"></div>
           <div class="options options-chips" id="dipsChoice"></div>
           <div class="opt-hint" id="dipsLeftHint"></div>
         </div>
@@ -86,8 +88,8 @@
           <div class="address-grid">
             <input id="coStreet" placeholder="Улица" />
             <input id="coHouse" placeholder="Дом" />
-            <input id="coFloor" placeholder="Этаж (необязательно)" />
-            <input id="coApt" placeholder="Квартира (необязательно)" />
+            <input id="coFloor" placeholder="Этаж" />
+            <input id="coApt" placeholder="Квартира" />
           </div>
         </div>
 
@@ -116,6 +118,8 @@
 
   <!-- build v19 -->
   <script>
+    // Service Worker: оставить включенным.
+    // Для временного отключения добавьте к URL ?nosw=1 (или закомментируйте блок ниже).
     if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
