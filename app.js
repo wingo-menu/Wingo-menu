@@ -23,30 +23,39 @@ const hav = (a, b) => {
 };
 
 // --- доставка: пороги и утилиты ---
+// < 1800 → 1490; 1800–2500 → 990; 2500–5000 → 490; ≥ 5000 → 0
 const DELIVERY_RULES = {
-  T1_LIMIT: 1800,      // < 1800 -> 1499
-  T2_LIMIT: 5000,      // 1800..4999 -> 790 ; >=5000 -> 0
-  FEE_T1: 1499,
-  FEE_T2: 790
+  LIMIT1: 1800,
+  LIMIT2: 2500,
+  LIMIT3: 5000,
+  FEE1: 1490,
+  FEE2: 990,
+  FEE3: 490
 };
 function calcSubtotal(){ return state.cart.reduce((a,c)=>a + c.qty * c.basePrice, 0); }
 function calcDeliveryFee(subtotal){
   if (subtotal <= 0) return 0;
   if (state.mode !== 'delivery') return 0;
   if (!state.geo || state.geo.status !== 'inside') return 0;
-  if (subtotal < DELIVERY_RULES.T1_LIMIT) return DELIVERY_RULES.FEE_T1;
-  if (subtotal < DELIVERY_RULES.T2_LIMIT) return DELIVERY_RULES.FEE_T2;
+  if (subtotal < DELIVERY_RULES.LIMIT1) return DELIVERY_RULES.FEE1;
+  if (subtotal < DELIVERY_RULES.LIMIT2) return DELIVERY_RULES.FEE2;
+  if (subtotal < DELIVERY_RULES.LIMIT3) return DELIVERY_RULES.FEE3;
   return 0;
 }
 function buildDeliveryBannerText(subtotal){
   if (state.mode !== 'delivery' || !state.geo || state.geo.status !== 'inside' || subtotal <= 0) return '';
-  if (subtotal < DELIVERY_RULES.T1_LIMIT){
-    const left = DELIVERY_RULES.T1_LIMIT - subtotal;
-    return `Доставка 1 499 ₸. Ещё ${Math.ceil(left).toLocaleString('ru-RU')} ₸ — и доставим за 790 ₸`;
+  const fmt = n => Math.ceil(n).toLocaleString('ru-RU');
+  if (subtotal < DELIVERY_RULES.LIMIT1){
+    const left = DELIVERY_RULES.LIMIT1 - subtotal;
+    return `Доставка 1 490 ₸. Ещё ${fmt(left)} ₸ — и доставим за 990 ₸`;
   }
-  if (subtotal < DELIVERY_RULES.T2_LIMIT){
-    const left = DELIVERY_RULES.T2_LIMIT - subtotal;
-    return `Доставка 790 ₸. Ещё ${Math.ceil(left).toLocaleString('ru-RU')} ₸ — и доставка бесплатно`;
+  if (subtotal < DELIVERY_RULES.LIMIT2){
+    const left = DELIVERY_RULES.LIMIT2 - subtotal;
+    return `Доставка 990 ₸. Ещё ${fmt(left)} ₸ — и доставим за 490 ₸`;
+  }
+  if (subtotal < DELIVERY_RULES.LIMIT3){
+    const left = DELIVERY_RULES.LIMIT3 - subtotal;
+    return `Доставка 490 ₸. Ещё ${fmt(left)} ₸ — и доставка бесплатно`;
   }
   return 'Доставка бесплатно';
 }
@@ -164,7 +173,7 @@ function ensureCartFAB(){
   el.cartBar.dataset.fabInited = '1';
   el.cartBar.classList.add('fab-cart');
 
-  // Собираем собственное содержимое FAB (только иконка + сумма)
+  // содержимое FAB (иконка + сумма)
   el.cartBar.innerHTML = `
     <span class="cart-ic" aria-hidden="true">
       <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21L5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
@@ -173,10 +182,10 @@ function ensureCartFAB(){
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  // Клик по пилюле — открыть чекаут
+  // клик — открыть чекаут
   el.cartBar.addEventListener('click', () => { if (!requireGeoChecked()) return; openCheckout(); });
 
-  // Старая зона открытия не нужна
+  // старая зона открытия не нужна
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
 }
 function ensureShipInfoBar(){
@@ -193,7 +202,7 @@ function ensureShipInfoBar(){
   el.shipInfoText = bar.querySelector('.txt');
   el.shipInfoBtn = bar.querySelector('.i-btn');
   el.shipInfoBtn.onclick = ()=>{
-    alert('Условия доставки:\\n\\n— Заказ до 1 800 ₸ — доставка 1 499 ₸\\n— Заказ от 1 800 до 4 999 ₸ — доставка 790 ₸\\n— Заказ от 5 000 ₸ — доставка бесплатно');
+    alert('Условия доставки:\n\n— До 1 800 ₸: доставка 1 490 ₸\n— 1 800–2 499 ₸: доставка 990 ₸\n— 2 500–4 999 ₸: доставка 490 ₸\n— От 5 000 ₸: доставка бесплатно');
   };
 }
 function updateShipInfoBar(){
@@ -421,13 +430,12 @@ function updateCartBar(){
   const count = state.cart.reduce((a,c)=>a+c.qty,0);
   const subtotal = calcSubtotal();
 
-  // Обновляем сумму в FAB: только число + " ₸"
+  // сумма в FAB
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
 
-  // Если открыт чекаут — FAB скрыт
+  // если открыт чекаут — FAB скрыт
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
 
-  // Показ/скрытие FAB
   if (count > 0 && !checkoutOpen) {
     el.cartBar.classList.remove('hidden'); el.cartBar.style.display='';
   } else {
@@ -448,21 +456,17 @@ function setNoteLabel(text){
 function injectNoteAfterLabel(){
   const checkout = el.checkout || document.getElementById('checkout');
   if (!checkout) return;
-  // find label text that contains "Комментарий"
   const labels = Array.from(checkout.querySelectorAll('label'));
   const label = labels.find(l => /Комментарий/i.test((l.textContent||'').trim()));
   if (!label) { ensureNoteField(); return; }
-  // if textarea already right after label — keep it
   const next = label.nextElementSibling;
   if (next && next.tagName === 'TEXTAREA' && next.id === 'coNote') return;
-  // ensure single textarea
   let ta = checkout.querySelector('#coNote');
   if (!ta) { ta = document.createElement('textarea'); ta.id = 'coNote'; }
   ta.setAttribute('rows','3');
   ta.placeholder = (state.mode === 'delivery')
     ? 'Комментарий курьеру (как пройти, код домофона...)'
     : 'Комментарий ресторану (пожелания, уточнения...)';
-  // inline styles to guarantee visibility on iOS/Safari
   ta.style.width = '100%';
   ta.style.boxSizing = 'border-box';
   ta.style.border = '1px solid rgba(0,0,0,.15)';
@@ -471,22 +475,18 @@ function injectNoteAfterLabel(){
   ta.style.margin = '6px 0 12px 0';
   ta.style.fontSize = '16px';
   ta.style.minHeight = '60px';
-  // insert right under label
   label.parentNode.insertBefore(ta, label.nextSibling);
   el.coNote = ta;
 }
 function ensureNoteField(){
-  // Create #coNote textarea if missing (e.g., in pickup mode markup)
   if (el.coNote && el.coNote.tagName) return;
   const checkout = el.checkout || document.getElementById('checkout');
   if (!checkout) return;
-  // Try to find label for coNote or any label containing "Комментарий"
   let label = checkout.querySelector('label[for="coNote"]') || Array.from(checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
   let container = (label && label.closest && label.closest('.field')) ? label.closest('.field') : null;
   if (!container) {
     container = document.createElement('div');
     container.className = 'field';
-    // Insert near the label if found, else append to checkout
     if (label && label.parentNode) {
       label.parentNode.insertBefore(container, label.nextSibling);
       container.appendChild(label);
@@ -532,11 +532,11 @@ function openCheckout(){
 }
 el.coClose && (el.coClose.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
-  updateCartBar(); // показать FAB снова (если есть позиции)
+  updateCartBar(); // показать FAB снова
 });
 el.coBackdrop && (el.coBackdrop.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
-  updateCartBar(); // показать FAB снова
+  updateCartBar();
 });
 
 el.modeSegment && el.modeSegment.addEventListener('click', e=>{
@@ -576,9 +576,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn minus" data-k="${c.key}">−</button>
+        <button class="qtybtn.minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn plus" data-k="${c.key}">+</button>
+        <button class="qtybtn.plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
@@ -628,7 +628,9 @@ el.geoBtn && (el.geoBtn.onclick = () => {
   el.geoBtn.disabled = true; el.geoBtn.textContent='Проверяем...';
   navigator.geolocation.getCurrentPosition(pos=>{
     const pt = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-    const base = state.conf.delivery.center; const radius = state.conf.delivery.radius_km || 1.5;
+    const base = state.conf.delivery.center;
+    const TEST_RADIUS_KM = 10; // временный расширенный радиус для теста UI
+    const radius = TEST_RADIUS_KM;
     const d = hav(base, pt); state.geo.distanceKm = d; state.geo.inside = d <= radius; state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo)); updateGeoUI(); ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
