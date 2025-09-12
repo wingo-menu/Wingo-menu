@@ -40,7 +40,7 @@ function calcDeliveryFee(subtotal){
   if (subtotal < DELIVERY_RULES.LIMIT1) return DELIVERY_RULES.FEE1;
   if (subtotal < DELIVERY_RULES.LIMIT2) return DELIVERY_RULES.FEE2;
   if (subtotal < DELIVERY_RULES.LIMIT3) return DELIVERY_RULES.FEE3;
-  return 0;
+  return 0; // от 5 000 ₸ — бесплатно
 }
 
 // компактный текст для баннера как у Додо
@@ -108,9 +108,9 @@ function ensureUIStyles(){
   .btn-green:hover { filter:brightness(0.95); }
   .btn-round { border-radius:9999px !important; aspect-ratio:1 / 1; width:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
-  /* FAB корзина — строго в правом нижнем углу (над баннером доставки) */
+  /* FAB корзина — фиксированный и ниже информ-доски (ship sheet) */
   #cartBar.fab-cart { position: fixed; right: 16px; bottom: 76px;
-    z-index: 1000; display: inline-flex; align-items: center; gap: 8px;
+    z-index: 900; display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 16px; background:#2E7D32; color:#fff;
     border-radius: 9999px; box-shadow: 0 10px 22px rgba(0,0,0,0.18); cursor: pointer; user-select: none;
     will-change: transform; transform: translateZ(0); }
@@ -121,7 +121,7 @@ function ensureUIStyles(){
   #cartBar.fab-cart .cart-fab-total { font-weight:700; font-size:15px; }
 
   /* Нижний компактный баннер условий доставки (тёмный как у Додо) */
-  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 900;
+  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 800;
     display: none; align-items: center; gap:10px; padding: 10px 12px;
     background: #111827; color:#F9FAFB; border:1px solid rgba(255,255,255,.08);
     border-radius: 9999px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
@@ -130,12 +130,11 @@ function ensureUIStyles(){
   #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(255,255,255,0.25);
     display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
   #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #shipInfoBar .txt .dot{padding:0 6px;opacity:.45}
 
-  /* Нижний шит с условиями */
-  #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 950; }
+  /* Нижний шит с условиями — поверх FAB */
+  #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 1100; }
   #shipSheet { position:fixed; left:0; right:0; bottom:-420px; background:#fff; border-radius:16px 16px 0 0;
-    box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 960; transition: transform .25s ease, bottom .25s ease; }
+    box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 1110; transition: transform .25s ease, bottom .25s ease; }
   #shipSheet .hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
   #shipSheet .hd .ttl { font-weight:700; font-size:16px; }
   #shipSheet .hd .cls { border:none; background:#111827; color:#fff; width:28px; height:28px; border-radius:9999px; cursor:pointer; }
@@ -210,7 +209,7 @@ function ensureShipInfoBar(){
           <tr><td>До 1 800 ₸</td><td style="text-align:right">1 490 ₸</td></tr>
           <tr><td>1 800–2 499 ₸</td><td style="text-align:right">990 ₸</td></tr>
           <tr><td>2 500–4 999 ₸</td><td style="text-align:right">490 ₸</td></tr>
-          <tr><td>От 5 000 ₸</td><td style="text-align:right">бесплатно</td></tr>
+          <tr><td>От 5 000 ₸</td><td style="text-align:right">0 ₸ (бесплатно)</td></tr>
         </tbody>
       </table>`;
     const backdrop = document.createElement('div'); backdrop.id = 'shipSheetBackdrop';
@@ -251,7 +250,7 @@ function updateShipInfoBar(){
   const txt = buildDeliveryBannerTextCompact(sub);
   if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
 
-  // однострочно, без переноса, с точкой-сепаратором
+  // однострочно, без переноса
   el.shipInfoText.textContent = txt;
   el.shipInfoBar.classList.add('show');
 }
@@ -437,13 +436,12 @@ function openSheet(item){
 
   dedupeSeparators();
 
-  // скрыть FAB и баннер доставки при открытом листе товара
+  // скрыть баннер при открытом листе товара, FAB остаётся (но и так ниже sheet)
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
-  el.cartBar.classList.add('hidden');
 
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 
-  // на всякий случай — пересчёт видимости баннера
+  // пересчёт видимости баннера
   updateShipInfoBar();
 }
 function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
@@ -476,7 +474,6 @@ el.sheetClose && (el.sheetClose.onclick = () => closeSheet());
 el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
 function closeSheet(){
   el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
-  el.cartBar.classList.remove('hidden'); // вернуть FAB
   updateShipInfoBar(); // вернуть баннер, если нужно
 }
 
@@ -652,9 +649,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn.minus" data-k="${c.key}">−</button>
+        <button class="qtybtn minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn.plus" data-k="${c.key}">+</button>
+        <button class="qtybtn plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
@@ -674,6 +671,7 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
 
+  // ВАЖНО: правильные классы для кнопок +/- (qtybtn и minus/plus раздельно), чтобы работали обработчики
   el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){ if(state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1);
