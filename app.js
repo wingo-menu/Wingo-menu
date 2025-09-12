@@ -1,4 +1,15 @@
-// helpers
+// ===================== WINGO MENU app.js =====================
+// Финальная версия с исправлениями:
+// - Фиксированный чекаут (фон не ездит вертикально и горизонтально)
+// - Рабочие кнопки +/- в корзине (делегирование событий)
+// - Зелёный крестик поверх карточки
+// - Только одна линия-разделитель в позициях (очистка и нормализация)
+// - Без зависаний после алертов: безопасная проверка гео + сторож разблокировки
+// - Логика доставки сохранена (от 5 000 ₸ — бесплатно)
+// - Компактный нижний баннер условий доставки «как у Додо» + нижний шит вместо alert
+// ===============================================================
+
+// ---------------- helpers ----------------
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const money = v => '₸' + Math.round(v || 0).toLocaleString('ru-RU');
@@ -62,7 +73,7 @@ function buildDeliveryBannerTextCompact(subtotal){
   return 'Доставка бесплатно';
 }
 
-// --- состояние ---
+// ---------------- состояние ----------------
 const state = {
   items: [], categories: [], conf: null, activeCategory: null,
   cart: JSON.parse(localStorage.getItem('wingo.cart') || '[]'),
@@ -75,7 +86,7 @@ const state = {
   _lockCount: 0
 };
 
-// --- элементы ---
+// ---------------- элементы ----------------
 const el = {
   tabs: $('#tabs'), grid: $('#grid'), sheet: $('#sheet'),
   sheetBackdrop: $('#sheetBackdrop'), sheetClose: $('#sheetClose'),
@@ -92,11 +103,11 @@ const el = {
   deliveryMode: $('#deliveryMode'), modeSegment: $('#modeSegment')
 };
 
-// --- стили ---
+// ---------------- стили ----------------
 function ensureUIStyles(){
   if (document.getElementById('wingo-ui-style')) return;
   const css = `
-  /* сглаживаем дёрганье при резких жестах */
+  /* базовая стабилизация жестов */
   html, body { overscroll-behavior: contain; }
   body { -webkit-tap-highlight-color: transparent; }
 
@@ -156,19 +167,20 @@ function ensureUIStyles(){
   #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
   .ship-open #shipSheet { bottom:0; }
 
-  /* Кнопка закрытия в листе товара поверх контента */
-  #sheetClose { position: absolute; top: 10px; right: 10px; z-index: 1200; }
-
-  /* Стабильность окна чекаута */
-  #checkout.show { will-change: transform; transform: translateZ(0); backface-visibility: hidden; }
-
   /* Лист товара и чекаут: собственный скролл */
   #sheet.show, #checkout.show { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+  /* Кнопка закрытия в листе товара поверх контента */
+  #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
+
+  /* Стабильность окна чекаута */
+  #checkout { overscroll-behavior: contain; }
+  #checkout.show { position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overflow-x: hidden; touch-action: pan-y; will-change: transform; transform: translateZ(0); backface-visibility: hidden; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
 
-// --- body scroll lock helpers ---
+// ---------------- body scroll lock helpers ----------------
 function lockBodyScroll(){
   state._lockCount++;
   if (state._lockCount > 1) return; // уже залочено
@@ -194,21 +206,55 @@ function unlockBodyScroll(){
     else document.documentElement.style.removeProperty('scroll-behavior');
   });
 }
+function ensureUnlockedIfNoLayers(){
+  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
+  const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
+  const shipOpen = document.body.classList.contains('ship-open');
+  if (!sheetOpen && !checkoutOpen && !shipOpen) {
+    state._lockCount = 0;
+    document.body.classList.remove('body-lock');
+    const prev = state._scrollY || 0;
+    window.scrollTo(0, prev);
+    document.documentElement.style.removeProperty('scroll-behavior');
+  }
+}
 
-// --- помощники для UI ---
+// ---------------- geo check (safe) ----------------
+function requireGeoChecked(){
+  if (!state.geo || state.geo.status === 'unknown'){
+    if (!state.geoWarnedOnce) {
+      state.geoWarnedOnce = true;
+      alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
+    }
+    return false;
+  }
+  return true;
+}
+function requireGeoCheckedSafe(){
+  const ok = requireGeoChecked();
+  if (!ok){ ensureUnlockedIfNoLayers(); }
+  return ok;
+}
+
+// ---------------- помощники UI ----------------
 function insertSeparatorBefore(elm){
   if (!elm || !elm.parentNode) return;
-  // walk back to find previous visible element sibling
-  let prev = elm.previousElementSibling;
-  while (prev && prev.nodeType===1 && prev.tagName==='HR' && prev.classList.contains('section-sep') && prev.classList.contains('auto')) {
-    // already an auto-separator directly before
-    return;
-  }
-  if (prev && prev.classList && prev.classList.contains('section-sep')) return;
-  if (!elm.dataset.sep) { elm.dataset.sep='1'; const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);}
+  if (elm.dataset && elm.dataset.sep === '1') return;
+  const prev = elm.previousElementSibling;
+  if (prev && prev.classList && prev.classList.contains('section-sep')) { elm.dataset.sep='1'; return; }
+  const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);
+  if (elm.dataset) elm.dataset.sep='1';
 }
 function clearAutoSeparators(){
   document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove());
+}
+function dedupeSeparators(){
+  const seps = Array.from(document.querySelectorAll('#sheet .section-sep')); let prev = null;
+  seps.forEach(node => {
+    if (prev && prev.nextElementSibling === node && prev.classList.contains('section-sep') && node.classList.contains('section-sep')) {
+      if (node.classList.contains('auto')) node.remove(); else if (prev && prev.classList.contains('auto')) prev.remove();
+    } else { prev = node; }
+  });
 }
 function normalizeSeparators(){
   const root = document.getElementById('sheet');
@@ -222,19 +268,11 @@ function normalizeSeparators(){
       else if (cur.classList.contains('auto')) cur.remove();
     }
   }
-  // remove leading/trailing within sheet content
+  // remove leading/trailing
   const first = root.querySelector('#sheet .section-sep');
   if (first && first === root.firstElementChild) first.remove();
   const last = root.querySelector('#sheet .section-sep:last-of-type');
   if (last && last === root.lastElementChild) last.remove();
-}
-function dedupeSeparators(){
-  const seps = Array.from(document.querySelectorAll('#sheet .section-sep')); let prev = null;
-  seps.forEach(node => {
-    if (prev && prev.nextElementSibling === node && prev.classList.contains('section-sep') && node.classList.contains('section-sep')) {
-      if (node.classList.contains('auto')) node.remove(); else if (prev && prev.classList.contains('auto')) prev.remove();
-    } else { prev = node; }
-  });
 }
 function getHeaderOffsetPx() {
   const header = document.querySelector('.header, header'); if (!header) return 0;
@@ -247,37 +285,18 @@ function ensureNoticeVisible(elm) {
 }
 
 // --- единая проверка гео (только один alert за сессию) ---
-function ensureUnlockedIfNoLayers(){
-  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
-  const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
-  const shipOpen = document.body.classList.contains('ship-open');
-  if (!sheetOpen && !checkoutOpen && !shipOpen) {
-    state._lockCount = 0;
-    document.body.classList.remove('body-lock');
-    const prev = state._scrollY || 0;
-    window.scrollTo(0, prev);
-    document.documentElement.style.removeProperty('scroll-behavior');
-  }
-}
-function requireGeoCheckedSafe(){
-  const ok = requireGeoChecked();
-  if (!ok){ ensureUnlockedIfNoLayers(); }
-  return ok;
-}
-function requireGeoChecked(){
+function requireGeoCheckedOnce(){
   if (!state.geo || state.geo.status === 'unknown'){
     if (!state.geoWarnedOnce) {
       state.geoWarnedOnce = true;
       alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
-      // страховка: снять блокировку скролла если есть
-      document.body.classList.remove('body-lock'); document.body.style.top=''; window.scrollTo(0,0);
     }
     return false;
   }
   return true;
 }
 
-// --- нижний баннер + нижний шит условий (без alert) ---
+// ---------------- нижний баннер + нижний шит ----------------
 function ensureShipInfoBar(){
   // баннер
   if (!document.getElementById('shipInfoBar')) {
@@ -319,7 +338,6 @@ function ensureShipInfoBar(){
 
   el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); lockBodyScroll(); };
 }
-
 function updateShipInfoBar(){
   ensureShipInfoBar();
   ensureCartFAB();
@@ -340,14 +358,14 @@ function updateShipInfoBar(){
     return;
   }
 
-  const txt = buildDeliveryBannerTextCompact(sub);
+  const txt = buildDeliveryBannerTextCompact(subtotal = sub);
   if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
 
   el.shipInfoText.textContent = txt;
   el.shipInfoBar.classList.add('show');
 }
 
-// --- новые элементы UI: FAB корзина ---
+// ---------------- FAB корзины ----------------
 function ensureCartFAB(){
   if (!el.cartBar || el.cartBar.dataset.fabInited === '1') return;
   el.cartBar.dataset.fabInited = '1';
@@ -374,7 +392,7 @@ function ensureCartFAB(){
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
 }
 
-// --- загрузка ---
+// ---------------- загрузка ----------------
 async function loadAll() {
   try {
     const [m, c] = await Promise.all([ fetch(`menu.json?v=${BUILD_VERSION}`), fetch(`config.json?v=${BUILD_VERSION}`) ]);
@@ -392,6 +410,7 @@ async function loadAll() {
   setupHours(); buildCategories(); renderGrid(); updateCartBar(); updateGeoUI();
 }
 
+// ---------------- расписание ----------------
 function setupHours(){
   const now = new Date();
   const [oh, om] = state.conf.business_hours.daily.open.split(':').map(Number);
@@ -401,6 +420,7 @@ function setupHours(){
   el.hoursState.textContent = (isOpen ? 'Открыто · ' : 'Закрыто · ') + state.conf.business_hours.daily.open + '–' + state.conf.business_hours.daily.close;
 }
 
+// ---------------- категории/грид ----------------
 function buildCategories(){
   const set = new Set(state.items.map(i => i.category)); state.categories = [...set]; el.tabs.innerHTML = '';
   state.categories.forEach((cat, i) => {
@@ -410,7 +430,6 @@ function buildCategories(){
     el.tabs.appendChild(a);
   });
 }
-
 function renderGrid(){
   const list = state.activeCategory ? state.items.filter(i => i.category === state.activeCategory) : state.items;
   el.grid.innerHTML = ''; const frag = document.createDocumentFragment();
@@ -428,6 +447,7 @@ function renderGrid(){
   el.grid.append(frag);
 }
 
+// ---------------- напитки/дипы ----------------
 function getIncludedDrinksCount(item){
   if ((item?.category || '').toLowerCase() === 'напитки') return 0;
   if (item?.id === 'combo-wings-6') return 1;
@@ -487,10 +507,10 @@ function buildDrinkUI(item){
   else { el.sheet.appendChild(block); }
 }
 
+// ---------------- карточка товара ----------------
 function openSheet(item){
   clearAutoSeparators();
-  // очистить все автосепараторы перед построением
-  document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove());
+
   state.sheetItem = item; state.sheetQty = 1;
   state.select = { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} };
   el.sheetImg.src = item.image || 'images/placeholder.png';
@@ -534,15 +554,7 @@ function openSheet(item){
     buildIncludedDipsUI(item); insertSeparatorBefore(el.dipsBlock);
   } else { el.dipsBlock.style.display='none'; el.dipsChoice.innerHTML=''; el.dipsLeftHint.textContent=''; }
 
-  dedupeSeparators();
-  // финальная нормализация сепараторов
-  (function(){
-    const seps = Array.from(document.querySelectorAll('#sheet hr.section-sep'));
-    seps.forEach((s,i)=>{
-      if(i===0 || i===seps.length-1) { if(s.classList.contains('auto')) s.remove(); }
-      const prev=s.previousElementSibling; if(prev && prev.tagName==='HR') { if(s.classList.contains('auto')) s.remove(); }
-    });
-  })();
+  dedupeSeparators(); normalizeSeparators();
 
   // скрыть баннер при открытом листе товара и залочить фон
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
@@ -551,7 +563,6 @@ function openSheet(item){
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 
   updateShipInfoBar();
-  ensureUnlockedIfNoLayers();
 }
 function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
 
@@ -606,6 +617,7 @@ el.addToCart && (el.addToCart.onclick = () => {
   localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); updateCartBar(); closeSheet();
 });
 
+// ---------------- корзина / чекаут ----------------
 function updateCartBar(){
   const count = state.cart.reduce((a,c)=>a+c.qty,0);
   const subtotal = calcSubtotal();
@@ -626,7 +638,7 @@ function updateCartBar(){
   ensureUnlockedIfNoLayers();
 }
 el.openCheckout && (el.openCheckout.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); });
-el.cartOpenArea && (el.cartOpenArea.onclick = () => openCheckout());
+el.cartOpenArea && (el.cartOpenArea.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); });
 
 function setNoteLabel(text){
   const labelCandidates = [ document.querySelector('label[for="coNote"]'), el.coNote && el.coNote.closest('.field') ? el.coNote.closest('.field').querySelector('label') : null,
@@ -698,13 +710,12 @@ function forceShowNoteField(){ ensureNoteField();
 }
 function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
-  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарий ресторану (пожелания, уточнения...)'; }
+  else { setNoteLabel('Комментарий ресторану'); if (el.coNote) el.coNote.placeholder = 'Комментарний ресторану (пожелания, уточнения...)'; }
   forceShowNoteField();
 }
 
 function openCheckout(){
   injectNoteAfterLabel();
-  if (!requireGeoChecked()) return;
   state.mode = state.geo.inside ? 'delivery' : 'pickup'; updateModeUI();
   if(el.coPhone && !el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
@@ -724,13 +735,12 @@ el.coBackdrop && (el.coBackdrop.onclick = () => {
   unlockBodyScroll();
   updateCartBar();
   updateShipInfoBar();
-  ensureUnlockedIfNoLayers();
 });
 
 el.modeSegment && el.modeSegment.addEventListener('click', e=>{
   const btn = e.target.closest('.seg'); if(!btn) return;
   const mode = btn.getAttribute('data-mode');
-  if(mode==='delivery' && !requireGeoChecked()) return;
+  if(mode==='delivery' && !requireGeoCheckedSafe()) return;
   if(mode==='delivery' && state.geo.status==='outside'){ alert('Вы вне зоны доставки. Доступен самовывоз.'); return; }
   state.mode = mode; updateModeUI();
 });
@@ -764,9 +774,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn.minus" data-k="${c.key}">−</button>
+        <button class="qtybtn minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn.plus" data-k="${c.key}">+</button>
+        <button class="qtybtn plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
@@ -786,6 +796,7 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
 
+  // Делегирование кликов по +/- (стабильно после любых перерисовок)
   if (!el._summaryBound) {
     el._summaryBound = true;
     el.coSummary.addEventListener('click', (ev) => {
@@ -809,18 +820,9 @@ function renderCoSummary(){
       updateCartBar();
     });
   }
-
-  el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
-    const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k);
-    if(i>-1){ if(state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1);
-      localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); renderCoSummary(); updateCartBar(); }
-  });
-  el.coSummary.querySelectorAll('.qtybtn.plus').forEach(b=>b.onclick=()=>{
-    const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k);
-    if(i>-1){ state.cart[i].qty++; localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); renderCoSummary(); updateCartBar(); }
-  });
 }
 
+// ---------------- гео UI ----------------
 function updateGeoUI(){
   const b = el.geoBanner, g = state.geo;
   const d = (typeof g.distanceKm === 'number' && isFinite(g.distanceKm)) ? g.distanceKm : null;
@@ -833,7 +835,6 @@ function updateGeoUI(){
   else if(g.status==='denied'){ b.className='geo-banner bad'; b.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
   else { b.className='geo-banner'; b.textContent=''; }
   updateShipInfoBar();
-  ensureUnlockedIfNoLayers();
 }
 
 el.geoBtn && (el.geoBtn.onclick = () => {
@@ -853,6 +854,7 @@ el.geoBtn && (el.geoBtn.onclick = () => {
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
 });
 
+// ---------------- WhatsApp ----------------
 function makeWAOrderLink(){
   const phone = state.conf.whatsapp_number;
   const lines = state.cart.map(c=>{
@@ -861,7 +863,7 @@ function makeWAOrderLink(){
     if(c.garnish) extras.push('гарнир: '+c.garnish);
     if (c.drinks_included > 1) {
       const pairs = Object.entries(c.drinks_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
-      if (pairs.length) extras.push('напитки: '+pairs.join(', ')); else extras.push('напитки: выбрать при звонке');
+      if (pairs.length) extras.push('напитки: '+pairs.join(', ')); else добавлю: extras.push('напитки: выбрать при звонке');
     } else if (c.drinks_included === 1 && c.drink) { extras.push('напиток: '+c.drink); }
     if(c.dips_included){
       extras.push('входит дипов: '+c.dips_included);
@@ -878,19 +880,19 @@ function makeWAOrderLink(){
 
   let addr = '';
   if(state.mode==='delivery'){
-    const street=(el.coStreet.value||'').trim();
-    const house=(el.coHouse.value||'').trim();
-    const floor=(el.coFloor.value||'').trim();
-    const apt=(el.coApt.value||'').trim();
+    const street=(el.coStreet?.value||'').trim();
+    const house=(el.coHouse?.value||'').trim();
+    const floor=(el.coFloor?.value||'').trim();
+    const apt=(el.coApt?.value||'').trim();
     if(!street||!house){ alert('Пожалуйста, укажите улицу и дом.'); throw new Error('address missing'); }
     addr = `ул. ${street}, д. ${house}${floor?`, эт. ${floor}`:''}${apt?`, кв. ${apt}`:''}`;
   }
 
-  const name = encodeURIComponent((el.coName.value||'').trim());
-  const phoneText = encodeURIComponent((el.coPhone.value||'').trim());
+  const name = encodeURIComponent((el.coName?.value||'').trim());
+  const phoneText = encodeURIComponent((el.coPhone?.value||'').trim());
   const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : '')); 
   const addrEnc = encodeURIComponent(addr);
-  const note = encodeURIComponent((el.coNote.value||'').trim());
+  const note = encodeURIComponent((el.coNote?.value||'').trim());
   const deliveryLine = (state.mode==='delivery' && state.geo && state.geo.status==='inside') ? `%0AДоставка: ${delivery} ₸` : '';
 
   const text = `Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸${deliveryLine}%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}%0AКомментарий: ${note}`;
@@ -902,17 +904,5 @@ el.coWhatsApp && (el.coWhatsApp.onclick = () => {
   try{ window.open(makeWAOrderLink(), '_blank', 'noopener'); }catch(e){}
 });
 
+// ---------------- запуск ----------------
 loadAll();
-
-
-// --- safety unlock if no overlays visible ---
-function ensureNoStaleLock(){
-  const anyOpen = (el.sheet && el.sheet.classList.contains('show')) ||
-                  (el.checkout && el.checkout.classList.contains('show')) ||
-                  (document.getElementById('shipSheet') && document.getElementById('shipSheet').classList.contains('show'));
-  if(!anyOpen && document.body.classList.contains('body-lock')){
-    document.body.classList.remove('body-lock');
-    document.body.style.top='';
-  }
-}
-setInterval(ensureNoStaleLock, 2000);
