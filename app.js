@@ -218,37 +218,40 @@ function ensureUIStyles(){
 // ---------------- body scroll lock helpers ----------------
 function lockBodyScroll(){
   state._lockCount++;
-  if (state._lockCount > 1) return; // уже залочено
+  if (state._lockCount > 1) return; // already locked
   state._scrollY = window.scrollY || window.pageYOffset || 0;
   document.documentElement.dataset.sb = getComputedStyle(document.documentElement).scrollBehavior || '';
   document.documentElement.style.scrollBehavior = 'auto';
   document.body.style.setProperty('--scroll-lock-top', `-${state._scrollY}px`);
   document.body.classList.add('body-lock');
+  state._actuallyLocked = true;
 }
 function unlockBodyScroll(){
   if (state._lockCount === 0) return;
   state._lockCount--;
-  if (state._lockCount > 0) return; // ещё открыты слои
+  if (state._lockCount > 0) return; // other layers still open
   document.body.classList.remove('body-lock');
-  const prev = state._scrollY || 0;
-  window.scrollTo(0, prev);
-  requestAnimationFrame(()=>{
-    const prevBeh = document.documentElement.dataset.sb || '';
-    if (prevBeh) document.documentElement.style.scrollBehavior = prevBeh;
-    else document.documentElement.style.removeProperty('scroll-behavior');
-  });
+  if (state._actuallyLocked) {
+    const prev = state._scrollY || 0;
+    window.scrollTo(0, prev);
+    requestAnimationFrame(()=>{
+      const prevBeh = document.documentElement.dataset.sb || '';
+      if (prevBeh) document.documentElement.style.scrollBehavior = prevBeh;
+      else document.documentElement.style.removeProperty('scroll-behavior');
+    });
+    state._actuallyLocked = false;
+  }
 }
 function ensureUnlockedIfNoLayers(){
   const sheetOpen = el.sheet && el.sheet.classList.contains('show');
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
   const shipOpen = document.body.classList.contains('ship-open');
   if (!sheetOpen && !checkoutOpen && !shipOpen) {
+    // just ensure body is unlocked; do NOT alter scroll position here
     state._lockCount = 0;
     document.body.classList.remove('body-lock');
-    const prev = state._scrollY || 0;
-    window.scrollTo(0, prev);
-    document.documentElement.style.removeProperty('scroll-behavior');
   }
+}
 }
 // [WATCHDOG] — сторож, чтобы страница не «зависала» при потерянном body-lock
 setInterval(ensureUnlockedIfNoLayers, 600);
@@ -273,7 +276,6 @@ function requireGeoChecked(){
 }
 function requireGeoCheckedSafe(){
   const ok = requireGeoChecked();
-  if (!ok){ ensureUnlockedIfNoLayers(); }
   return ok;
 }
 
@@ -321,8 +323,16 @@ function getHeaderOffsetPx() {
   return 0;
 }
 function ensureNoticeVisible(elm) {
-  if (!elm) return; elm.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  const ho = getHeaderOffsetPx(); if (ho) { setTimeout(() => { window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' }); }, 250); }
+  if (!elm) return;
+  const now = Date.now();
+  if (!state._lastNoticeTs || now - state._lastNoticeTs > 900) {
+    state._lastNoticeTs = now;
+    elm.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const ho = getHeaderOffsetPx();
+    if (ho) {
+      setTimeout(() => { window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' }); }, 250);
+    }
+  }
 }
 
 // --- единая проверка гео (только один alert за сессию) ---
