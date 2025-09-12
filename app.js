@@ -94,6 +94,9 @@ const el = {
 function ensureUIStyles(){
   if (document.getElementById('wingo-ui-style')) return;
   const css = `
+  /* сглаживаем дёрганье при резких жестах */
+  html, body { overscroll-behavior: contain; }
+  body { -webkit-tap-highlight-color: transparent; }
   .section { padding-top: 8px; }
   .section-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
   .section-sep { height:1px; background:#2E7D32; opacity:.35; margin:12px 0; border:0; }
@@ -108,24 +111,26 @@ function ensureUIStyles(){
   .btn-green:hover { filter:brightness(0.95); }
   .btn-round { border-radius:9999px !important; aspect-ratio:1 / 1; width:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
-  /* FAB корзина — фиксированный и ниже информ-доски (ship sheet) */
-  #cartBar.fab-cart { position: fixed; right: 16px; bottom: 76px;
+  /* FAB корзина — фиксированный, без белого ореола */
+  #cartBar.fab-cart { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
     z-index: 900; display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 16px; background:#2E7D32; color:#fff;
-    border-radius: 9999px; box-shadow: 0 10px 22px rgba(0,0,0,0.18); cursor: pointer; user-select: none;
-    will-change: transform; transform: translateZ(0); }
+    border: none; border-radius: 9999px; background-clip: padding-box;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.28); cursor: pointer; user-select: none;
+    will-change: transform; transform: translateZ(0); backface-visibility: hidden; contain: paint; }
   #cartBar.fab-cart.hidden { display: none !important; }
+  #cartBar.fab-cart::before, #cartBar.fab-cart::after { content: none !important; display: none !important; }
   #cartBar.fab-cart .cart-ic { width:18px; height:18px; display:inline-block; }
   #cartBar.fab-cart .cart-ic svg { width:100%; height:100%; display:block; fill:#fff; }
   #cartBar.fab-cart #cartCount { display:none !important; }
   #cartBar.fab-cart .cart-fab-total { font-weight:700; font-size:15px; }
 
   /* Нижний компактный баннер условий доставки (тёмный как у Додо) */
-  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 800;
+  #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 800;
     display: none; align-items: center; gap:10px; padding: 10px 12px;
     background: #111827; color:#F9FAFB; border:1px solid rgba(255,255,255,.08);
     border-radius: 9999px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
-    will-change: transform; transform: translateZ(0); }
+    will-change: transform; transform: translateZ(0); backface-visibility: hidden; contain: paint; }
   #shipInfoBar.show { display:flex; }
   #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(255,255,255,0.25);
     display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
@@ -250,7 +255,6 @@ function updateShipInfoBar(){
   const txt = buildDeliveryBannerTextCompact(sub);
   if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
 
-  // однострочно, без переноса
   el.shipInfoText.textContent = txt;
   el.shipInfoBar.classList.add('show');
 }
@@ -436,12 +440,11 @@ function openSheet(item){
 
   dedupeSeparators();
 
-  // скрыть баннер при открытом листе товара, FAB остаётся (но и так ниже sheet)
+  // скрыть баннер при открытом листе товара (FAB остаётся фиксированным)
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
 
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 
-  // пересчёт видимости баннера
   updateShipInfoBar();
 }
 function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
@@ -671,7 +674,6 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
 
-  // ВАЖНО: правильные классы для кнопок +/- (qtybtn и minus/plus раздельно), чтобы работали обработчики
   el.coSummary.querySelectorAll('.qtybtn.minus').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-k'); const i=state.cart.findIndex(c=>c.key===k);
     if(i>-1){ if(state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1);
