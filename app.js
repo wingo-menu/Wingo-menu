@@ -70,7 +70,9 @@ const state = {
   mode: 'delivery', sheetItem: null, sheetQty: 1,
   select: { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} },
   drinkOptions: [],
-  geoWarnedOnce: false
+  geoWarnedOnce: false,
+  _scrollY: 0,
+  _lockCount: 0
 };
 
 // --- элементы ---
@@ -97,6 +99,10 @@ function ensureUIStyles(){
   /* сглаживаем дёрганье при резких жестах */
   html, body { overscroll-behavior: contain; }
   body { -webkit-tap-highlight-color: transparent; }
+
+  /* Лок скролла для боди при открытых слоях */
+  .body-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden !important; top: var(--scroll-lock-top, 0px); }
+
   .section { padding-top: 8px; }
   .section-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
   .section-sep { height:1px; background:#2E7D32; opacity:.35; margin:12px 0; border:0; }
@@ -136,11 +142,12 @@ function ensureUIStyles(){
     display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
   #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  /* Нижний шит с условиями — поверх FAB */
-  #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 1100; }
+  /* Нижний шит с условиями — поверх FAB. Делаем свой скролл, не двигая фон */
+  #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 1100; touch-action:none; overscroll-behavior: contain; }
   #shipSheet { position:fixed; left:0; right:0; bottom:-420px; background:#fff; border-radius:16px 16px 0 0;
-    box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 1110; transition: transform .25s ease, bottom .25s ease; }
-  #shipSheet .hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 1110; transition: transform .25s ease, bottom .25s ease;
+    max-height: min(75vh, 520px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  #shipSheet .hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; position: sticky; top: 0; background:#fff;}
   #shipSheet .hd .ttl { font-weight:700; font-size:16px; }
   #shipSheet .hd .cls { border:none; background:#111827; color:#fff; width:28px; height:28px; border-radius:9999px; cursor:pointer; }
   #shipSheet .tbl { width:100%; border-collapse:collapse; font-size:14px; margin-top:4px; }
@@ -148,8 +155,38 @@ function ensureUIStyles(){
   #shipSheet.show + #shipSheetBackdrop,
   #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
   .ship-open #shipSheet { bottom:0; }
+
+  /* Лист товара и чекаут: собственный скролл */
+  #sheet.show, #checkout.show { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
+}
+
+// --- body scroll lock helpers ---
+function lockBodyScroll(){
+  state._lockCount++;
+  if (state._lockCount > 1) return; // уже залочено
+  state._scrollY = window.scrollY || window.pageYOffset || 0;
+  document.documentElement.dataset.sb = getComputedStyle(document.documentElement).scrollBehavior || '';
+  // отключаем плавный скролл на время восстановления
+  document.documentElement.style.scrollBehavior = 'auto';
+  document.body.style.setProperty('--scroll-lock-top', `-${state._scrollY}px`);
+  document.body.classList.add('body-lock');
+}
+function unlockBodyScroll(){
+  if (state._lockCount === 0) return;
+  state._lockCount--;
+  if (state._lockCount > 0) return; // ещё открыты слои
+  document.body.classList.remove('body-lock');
+  const prev = state._scrollY || 0;
+  // возвращаем скролл
+  window.scrollTo(0, prev);
+  // восстанавливаем поведение скролла
+  requestAnimationFrame(()=>{
+    const prevBeh = document.documentElement.dataset.sb || '';
+    if (prevBeh) document.documentElement.style.scrollBehavior = prevBeh;
+    else document.documentElement.style.removeProperty('scroll-behavior');
+  });
 }
 
 // --- помощники для UI ---
@@ -221,7 +258,7 @@ function ensureShipInfoBar(){
     document.body.appendChild(sheet); document.body.appendChild(backdrop);
 
     el.shipSheet = sheet; el.shipSheetBackdrop = backdrop;
-    const close = () => { document.body.classList.remove('ship-open'); el.shipSheetBackdrop.classList.remove('show'); };
+    const close = () => { document.body.classList.remove('ship-open'); el.shipSheetBackdrop.classList.remove('show'); unlockBodyScroll(); };
     sheet.querySelector('.cls').onclick = close;
     backdrop.onclick = close;
   } else {
@@ -229,7 +266,7 @@ function ensureShipInfoBar(){
     el.shipSheetBackdrop = document.getElementById('shipSheetBackdrop');
   }
 
-  el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); };
+  el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); lockBodyScroll(); };
 }
 
 function updateShipInfoBar(){
@@ -440,8 +477,9 @@ function openSheet(item){
 
   dedupeSeparators();
 
-  // скрыть баннер при открытом листе товара (FAB остаётся фиксированным)
+  // скрыть баннер при открытом листе товара и залочить фон
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
+  lockBodyScroll();
 
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
 
@@ -477,6 +515,7 @@ el.sheetClose && (el.sheetClose.onclick = () => closeSheet());
 el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
 function closeSheet(){
   el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
+  unlockBodyScroll();
   updateShipInfoBar(); // вернуть баннер, если нужно
 }
 
@@ -601,16 +640,19 @@ function openCheckout(){
   if(el.coPhone && !el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
   ensureNoteField(); updateNoteUIByMode(); renderCoSummary();
+  lockBodyScroll();
   updateCartBar(); // скрыть FAB на время чекаута
   updateShipInfoBar(); // скрыть баннер на время чекаута
 }
 el.coClose && (el.coClose.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
+  unlockBodyScroll();
   updateCartBar(); // показать FAB снова
   updateShipInfoBar(); // вернуть баннер при необходимости
 });
 el.coBackdrop && (el.coBackdrop.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
+  unlockBodyScroll();
   updateCartBar();
   updateShipInfoBar();
 });
@@ -652,9 +694,9 @@ function renderCoSummary(){
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
-        <button class="qtybtn minus" data-k="${c.key}">−</button>
+        <button class="qtybtn.minus" data-k="${c.key}">−</button>
         <span class="q">${c.qty}</span>
-        <button class="qtybtn plus" data-k="${c.key}">+</button>
+        <button class="qtybtn.plus" data-k="${c.key}">+</button>
         <span class="s">${money(sum)}</span>
       </div>
     </div>`;
