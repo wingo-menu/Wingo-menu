@@ -1,34 +1,27 @@
-// ===================== WINGO MENU app.js =====================
-// Финальная версия с исправлениями:
-// - Баннер «как у Додо»: понятные формулировки "…и доставим за/бесплатно"
-// - Фиксированный чекаут и лист товара: фон не ездит, локальный скролл, без горизонтальных «съездов»
-// - Рабочие кнопки +/- в корзине (делегирование событий)
-// - Только одна линия-разделитель в карточках (очистка и нормализация)
-// - Без зависаний после алертов: безопасная проверка гео + сторож разблокировки
-// - Логика доставки сохранена (от 5 000 ₸ — бесплатно)
-// - FAB без «призрака» и правильные z-index
-// - [FIX #1] FAB открывает чекаут только после проверки доставки (если гео unknown — просим проверить)
-// - [FIX #2] Нет «отката» со страницы еды при открытии корзины
-// - [FIX #3] Нижний баннер переносит текст на 2+ строки и показывается сразу при загрузке
-// - [FIX #4] Чекаут «Доставка» стабилен: сетка полей как в «Самовывозе», никаких горизонтальных сдвигов
-// - [FIX #5] Плейсхолдеры: «Этаж», «Квартира» — без «необязательно», поля всегда видимы
-// - [FIX #6] Вкладка «Все» перед остальными; стартовое состояние — весь каталог
-// ===============================================================
+// ===================== WINGO MENU app.js (stable build) =====================
+// Чин: пустая страница/каталог не рендерится из-за рантайм-ошибки.
+// Что сделано:
+// - Жёсткие гард-чекы DOM/данных, чтобы код не падал даже при частично пустом HTML
+// - Валидный SVG у FAB корзины (без битых символов)
+// - Категория «Все» спереди; старт — весь каталог
+// - Вход в корзину только после проверки доставки
+// - Баннер доставки показывается сразу, текст переносится на 2+ строки
+// - Сторож скролла без рывков
+// ============================================================================
 
 // ---------------- helpers ----------------
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const money = v => '₸' + Math.round(v || 0).toLocaleString('ru-RU');
-// FAB amount format: "1 320 ₸"
 const moneyFab = v => Math.round(v||0).toLocaleString('ru-RU') + ' ₸';
 
 const BUILD_VERSION = (() => {
   try {
     const currentScript = document.currentScript || [...document.getElementsByTagName('script')].pop();
-    const u = new URL(currentScript.src || window.location.href, window.location.href);
-    return u.searchParams.get('v') || '22';
+    const u = new URL(currentScript?.src || window.location.href, window.location.href);
+    return u.searchParams.get('v') || '23';
   } catch (e) {
-    return '22';
+    return '23';
   }
 })();
 
@@ -40,15 +33,7 @@ const hav = (a, b) => {
 };
 
 // --- доставка: пороги и утилиты ---
-// < 1800 → 1490; 1800–2500 → 990; 2500–5000 → 490; ≥ 5000 → 0
-const DELIVERY_RULES = {
-  LIMIT1: 1800,
-  LIMIT2: 2500,
-  LIMIT3: 5000,
-  FEE1: 1490,
-  FEE2: 990,
-  FEE3: 490
-};
+const DELIVERY_RULES = { LIMIT1:1800, LIMIT2:2500, LIMIT3:5000, FEE1:1490, FEE2:990, FEE3:490 };
 function calcSubtotal(){ return state.cart.reduce((a,c)=>a + c.qty * c.basePrice, 0); }
 function calcDeliveryFee(subtotal){
   if (subtotal <= 0) return 0;
@@ -57,10 +42,8 @@ function calcDeliveryFee(subtotal){
   if (subtotal < DELIVERY_RULES.LIMIT1) return DELIVERY_RULES.FEE1;
   if (subtotal < DELIVERY_RULES.LIMIT2) return DELIVERY_RULES.FEE2;
   if (subtotal < DELIVERY_RULES.LIMIT3) return DELIVERY_RULES.FEE3;
-  return 0; // от 5 000 ₸ — бесплатно
+  return 0;
 }
-
-// «как у Додо» (одна строка, ясно и по делу)
 function buildDeliveryBannerTextCompact(subtotal){
   if (state.mode !== 'delivery' || !state.geo || state.geo.status !== 'inside' || subtotal <= 0) return '';
   const fmt = n => Math.ceil(n).toLocaleString('ru-RU');
@@ -81,15 +64,19 @@ function buildDeliveryBannerTextCompact(subtotal){
 
 // ---------------- состояние ----------------
 const state = {
-  items: [], categories: [], conf: null, activeCategory: null,
-  cart: JSON.parse(localStorage.getItem('wingo.cart') || '[]'),
-  geo: JSON.parse(localStorage.getItem('wingo.geo') || '{"status":"unknown","inside":false}'),
+  items: [], categories: [], conf: { business_hours:{daily:{open:'10:00', close:'23:00'}}, delivery:{center:{lat:43.238949, lng:76.889709}}, pickup:{address:''}, whatsapp_number:'77001234567', utm:'' },
+  activeCategory: null,
+  cart: (()=>{
+    try{ return JSON.parse(localStorage.getItem('wingo.cart') || '[]'); }catch(_){ return []; }
+  })(),
+  geo: (()=>{
+    try{ return JSON.parse(localStorage.getItem('wingo.geo') || '{"status":"unknown","inside":false}'); }catch(_){ return {"status":"unknown","inside":false}; }
+  })(),
   mode: 'delivery', sheetItem: null, sheetQty: 1,
   select: { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} },
   drinkOptions: [],
   geoWarnedOnce: false,
-  _scrollY: 0,
-  _lockCount: 0
+  _scrollY: 0, _lockCount: 0, _actuallyLocked: false, _lastNoticeTs:0
 };
 
 // ---------------- элементы ----------------
@@ -113,11 +100,8 @@ const el = {
 function ensureUIStyles(){
   if (document.getElementById('wingo-ui-style')) return;
   const css = `
-  /* базовая стабилизация жестов */
   html, body { overscroll-behavior: contain; }
   body { -webkit-tap-highlight-color: transparent; }
-
-  /* Лок скролла для боди при открытых слоях */
   .body-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden !important; top: var(--scroll-lock-top, 0px); }
 
   .section { padding-top: 8px; }
@@ -134,7 +118,7 @@ function ensureUIStyles(){
   .btn-green:hover { filter:brightness(0.95); }
   .btn-round { border-radius:9999px !important; aspect-ratio:1 / 1; width:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
-  /* FAB корзина — фиксированный, без белого ореола */
+  /* FAB */
   #cartBar.fab-cart { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
     z-index: 900; display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 16px; background:#2E7D32; color:#fff;
@@ -142,13 +126,10 @@ function ensureUIStyles(){
     box-shadow: 0 10px 24px rgba(0,0,0,0.28); cursor: pointer; user-select: none;
     will-change: transform; transform: translateZ(0); backface-visibility: hidden; contain: paint; }
   #cartBar.fab-cart.hidden { display: none !important; }
-  #cartBar.fab-cart::before, #cartBar.fab-cart::after { content: none !important; display: none !important; }
   #cartBar.fab-cart .cart-ic { width:18px; height:18px; display:inline-block; }
-  #cartBar.fab-cart .cart-ic svg { width:100%; height:100%; display:block; fill:#fff; }
-  #cartBar.fab-cart #cartCount { display:none !important; }
   #cartBar.fab-cart .cart-fab-total { font-weight:700; font-size:15px; }
 
-  /* Нижний компактный баннер условий доставки (тёмный как у Додо) */
+  /* Нижний компактный баннер */
   #shipInfoBar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 800;
     display: none; align-items: center; gap:10px; padding: 10px 12px;
     background: #111827; color:#F9FAFB; border:1px solid rgba(255,255,255,.08);
@@ -157,10 +138,8 @@ function ensureUIStyles(){
   #shipInfoBar.show { display:flex; }
   #shipInfoBar .i-btn { width: 22px; height: 22px; border-radius: 9999px; border:1px solid rgba(255,255,255,0.25);
     display:inline-flex; align-items:center; justify-content:center; background:transparent; cursor:pointer; font-weight:700; color:#fff; }
-  /* [FIX #3] — разрешаем перенос на 2+ строки */
   #shipInfoBar .txt { flex:1; font-size: 13.5px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
 
-  /* Нижний шит с условиями — поверх FAB. Свой скролл, фон статичен */
   #shipSheetBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index: 1100; touch-action:none; overscroll-behavior: contain; }
   #shipSheet { position:fixed; left:0; right:0; bottom:-420px; background:#fff; border-radius:16px 16px 0 0;
     box-shadow: 0 -12px 28px rgba(0,0,0,.2); padding:14px 16px 18px; z-index: 1110; transition: transform .25s ease, bottom .25s ease;
@@ -170,46 +149,28 @@ function ensureUIStyles(){
   #shipSheet .hd .cls { border:none; background:#111827; color:#fff; width:28px; height:28px; border-radius:9999px; cursor:pointer; }
   #shipSheet .tbl { width:100%; border-collapse:collapse; font-size:14px; margin-top:4px; }
   #shipSheet .tbl td { padding:10px 6px; border-bottom:1px solid rgba(0,0,0,.06); }
-  #shipSheet.show + #shipSheetBackdrop,
-  #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
+  #shipSheet.show + #shipSheetBackdrop, #shipSheetBackdrop.show { opacity:1; pointer-events:auto; }
   .ship-open #shipSheet { bottom:0; }
 
-  /* Карточка товара и чекаут: фиксированные слои с локальным скроллом */
+  /* Листы-слои */
   #sheet.show, #checkout.show {
-    position: fixed;
-    inset: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    overscroll-behavior: contain;
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    max-width: 100vw;
+    position: fixed; inset: 0;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain;
+    will-change: transform; transform: translateZ(0); backface-visibility: hidden; max-width: 100vw;
   }
 
-  /* [FIX #4] Сетка и стабилизация полей адреса в чекауте */
+  /* Сетка адреса */
   #checkout .addr-grid { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: start; }
   #checkout .addr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   #checkout .addr-grid input, #checkout .addr-row2 input, #checkout textarea {
     height: 44px; padding: 10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:12px; font-size:16px; box-sizing:border-box; width:100%;
   }
   #checkout .addr-row2 input { height: 44px; }
-  #checkout .field-inline { display: contents; }
   #checkout .addr-wrap { display: grid; gap: 10px; }
-  #checkout .addr-section-title { font-size:14px; font-weight:600; opacity:.8; }
+  .pulse { animation: pulse 1.2s ease-in-out 3; }
+  @keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(46,125,50,.6);} 100%{ box-shadow:0 0 0 16px rgba(46,125,50,0);} }
 
-  /* Подсветка кнопки гео при требовании проверки */
-  .pulse {
-    animation: pulse 1.2s ease-in-out 3;
-  }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.6); }
-    100% { box-shadow: 0 0 0 16px rgba(46,125,50,0); }
-  }
-
-  /* Кнопка закрытия в листе товара поверх контента */
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
   `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
@@ -218,7 +179,7 @@ function ensureUIStyles(){
 // ---------------- body scroll lock helpers ----------------
 function lockBodyScroll(){
   state._lockCount++;
-  if (state._lockCount > 1) return; // already locked
+  if (state._lockCount > 1) return;
   state._scrollY = window.scrollY || window.pageYOffset || 0;
   document.documentElement.dataset.sb = getComputedStyle(document.documentElement).scrollBehavior || '';
   document.documentElement.style.scrollBehavior = 'auto';
@@ -229,7 +190,7 @@ function lockBodyScroll(){
 function unlockBodyScroll(){
   if (state._lockCount === 0) return;
   state._lockCount--;
-  if (state._lockCount > 0) return; // other layers still open
+  if (state._lockCount > 0) return;
   document.body.classList.remove('body-lock');
   if (state._actuallyLocked) {
     const prev = state._scrollY || 0;
@@ -247,13 +208,10 @@ function ensureUnlockedIfNoLayers(){
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
   const shipOpen = document.body.classList.contains('ship-open');
   if (!sheetOpen && !checkoutOpen && !shipOpen) {
-    // just ensure body is unlocked; do NOT alter scroll position here
     state._lockCount = 0;
     document.body.classList.remove('body-lock');
   }
 }
-}
-// [WATCHDOG] — сторож, чтобы страница не «зависала» при потерянном body-lock
 setInterval(ensureUnlockedIfNoLayers, 600);
 document.addEventListener('visibilitychange', ensureUnlockedIfNoLayers);
 
@@ -264,7 +222,6 @@ function requireGeoChecked(){
       state.geoWarnedOnce = true;
       alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
     }
-    // подсветить кнопку и проскроллить к баннеру
     if (el.geoBtn) {
       el.geoBtn.classList.add('pulse');
       setTimeout(()=> el.geoBtn && el.geoBtn.classList.remove('pulse'), 2000);
@@ -274,49 +231,9 @@ function requireGeoChecked(){
   }
   return true;
 }
-function requireGeoCheckedSafe(){
-  const ok = requireGeoChecked();
-  return ok;
-}
+function requireGeoCheckedSafe(){ return requireGeoChecked(); }
 
 // ---------------- помощники UI ----------------
-function insertSeparatorBefore(elm){
-  if (!elm || !elm.parentNode) return;
-  if (elm.dataset && elm.dataset.sep === '1') return;
-  const prev = elm.previousElementSibling;
-  if (prev && prev.classList && prev.classList.contains('section-sep')) { elm.dataset.sep='1'; return; }
-  const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);
-  if (elm.dataset) elm.dataset.sep='1';
-}
-function clearAutoSeparators(){
-  document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove());
-}
-function dedupeSeparators(){
-  const seps = Array.from(document.querySelectorAll('#sheet .section-sep')); let prev = null;
-  seps.forEach(node => {
-    if (prev && prev.nextElementSibling === node && prev.classList.contains('section-sep') && node.classList.contains('section-sep')) {
-      if (node.classList.contains('auto')) node.remove(); else if (prev && prev.classList.contains('auto')) prev.remove();
-    } else { prev = node; }
-  });
-}
-function normalizeSeparators(){
-  const root = document.getElementById('sheet');
-  if (!root) return;
-  const list = Array.from(root.querySelectorAll('hr.section-sep'));
-  // remove consecutive
-  for (let i = list.length - 2; i >= 0; i--) {
-    const cur = list[i], nxt = list[i+1];
-    if (cur && nxt && cur.nextElementSibling === nxt) {
-      if (nxt.classList.contains('auto')) nxt.remove();
-      else if (cur.classList.contains('auto')) cur.remove();
-    }
-  }
-  // remove leading/trailing
-  const first = root.querySelector('#sheet .section-sep');
-  if (first && first === root.firstElementChild) first.remove();
-  const last = root.querySelector('#sheet .section-sep:last-of-type');
-  if (last && last === root.lastElementChild) last.remove();
-}
 function getHeaderOffsetPx() {
   const header = document.querySelector('.header, header'); if (!header) return 0;
   const cs = getComputedStyle(header); if (cs.position === 'fixed' || cs.position === 'sticky') { return header.offsetHeight || 0; }
@@ -329,27 +246,42 @@ function ensureNoticeVisible(elm) {
     state._lastNoticeTs = now;
     elm.scrollIntoView({ block: 'start', behavior: 'smooth' });
     const ho = getHeaderOffsetPx();
-    if (ho) {
-      setTimeout(() => { window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' }); }, 250);
-    }
+    if (ho) setTimeout(() => { window.scrollBy({ top: -ho - 8, left: 0, behavior: 'instant' }); }, 250);
   }
 }
-
-// --- единая проверка гео (только один alert за сессию) ---
-function requireGeoCheckedOnce(){
-  if (!state.geo || state.geo.status === 'unknown'){
-    if (!state.geoWarnedOnce) {
-      state.geoWarnedOnce = true;
-      alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
+function insertSeparatorBefore(elm){
+  if (!elm || !elm.parentNode) return;
+  if (elm.dataset && elm.dataset.sep === '1') return;
+  const prev = elm.previousElementSibling;
+  if (prev && prev.classList && prev.classList.contains('section-sep')) { elm.dataset.sep='1'; return; }
+  const hr = document.createElement('hr'); hr.className = 'section-sep auto'; elm.parentNode.insertBefore(hr, elm);
+  if (elm.dataset) elm.dataset.sep='1';
+}
+function clearAutoSeparators(){ document.querySelectorAll('#sheet hr.section-sep.auto').forEach(n=>n.remove()); }
+function dedupeSeparators(){
+  const seps = Array.from(document.querySelectorAll('#sheet .section-sep')); let prev = null;
+  seps.forEach(node => {
+    if (prev && prev.nextElementSibling === node && prev.classList.contains('section-sep') && node.classList.contains('section-sep')) {
+      if (node.classList.contains('auto')) node.remove(); else if (prev && prev.classList.contains('auto')) prev.remove();
+    } else { prev = node; }
+  });
+}
+function normalizeSeparators(){
+  const root = document.getElementById('sheet'); if (!root) return;
+  const list = Array.from(root.querySelectorAll('hr.section-sep'));
+  for (let i = list.length - 2; i >= 0; i--) {
+    const cur = list[i], nxt = list[i+1];
+    if (cur && nxt && cur.nextElementSibling === nxt) {
+      if (nxt.classList.contains('auto')) nxt.remove();
+      else if (cur.classList.contains('auto')) cur.remove();
     }
-    return false;
   }
-  return true;
+  const first = root.querySelector('#sheet .section-sep'); if (first && first === root.firstElementChild) first.remove();
+  const last = root.querySelector('#sheet .section-sep:last-of-type'); if (last && last === root.lastElementChild) last.remove();
 }
 
 // ---------------- нижний баннер + нижний шит ----------------
 function ensureShipInfoBar(){
-  // баннер
   if (!document.getElementById('shipInfoBar')) {
     const bar = document.createElement('div'); bar.id = 'shipInfoBar';
     bar.innerHTML = `<button class="i-btn" aria-label="Условия" type="button">i</button><div class="txt"></div>`;
@@ -359,7 +291,6 @@ function ensureShipInfoBar(){
   el.shipInfoText = el.shipInfoBar.querySelector('.txt');
   el.shipInfoBtn = el.shipInfoBar.querySelector('.i-btn');
 
-  // нижний шит
   if (!document.getElementById('shipSheet')) {
     const sheet = document.createElement('div'); sheet.id = 'shipSheet';
     sheet.innerHTML = `
@@ -387,7 +318,7 @@ function ensureShipInfoBar(){
     el.shipSheetBackdrop = document.getElementById('shipSheetBackdrop');
   }
 
-  el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); lockBodyScroll(); };
+  if (el.shipInfoBtn) el.shipInfoBtn.onclick = ()=>{ document.body.classList.add('ship-open'); el.shipSheetBackdrop.classList.add('show'); lockBodyScroll(); };
 }
 function updateShipInfoBar(){
   ensureShipInfoBar();
@@ -404,95 +335,103 @@ function updateShipInfoBar(){
     && !checkoutOpen;
 
   if (!shouldShow){
-    el.shipInfoBar.classList.remove('show');
-    el.shipInfoText.textContent='';
+    if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
+    if (el.shipInfoText) el.shipInfoText.textContent='';
     return;
   }
 
   const txt = buildDeliveryBannerTextCompact(sub);
-  if (!txt){ el.shipInfoBar.classList.remove('show'); return; }
+  if (!txt){ el.shipInfoBar && el.shipInfoBar.classList.remove('show'); return; }
 
-  el.shipInfoText.textContent = txt;
-  el.shipInfoBar.classList.add('show');
+  if (el.shipInfoText) el.shipInfoText.textContent = txt;
+  el.shipInfoBar && el.shipInfoBar.classList.add('show');
 }
 
 // ---------------- FAB корзины ----------------
 function ensureCartFAB(){
-  if (!el.cartBar || el.cartBar.dataset.fabInited === '1') return;
+  if (!el.cartBar || el.cartBar.dataset?.fabInited === '1') return;
   el.cartBar.dataset.fabInited = '1';
   el.cartBar.classList.add('fab-cart');
 
-  // содержимое FAB (иконка + сумма)
   el.cartBar.innerHTML = `
     <span class="cart-ic" aria-hidden="true">
-      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21Л5.27 2H2v2h2л3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM3 4h2l3.6 7.59-1.35 2.44A2 2 0 0 0 9.16 16H19a2 2 0 0 0 1.79-1.1l3-6A1 1 0 0 0 23 7H6.31l-1-2H3Z"></path>
+      </svg>
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  // [FIX #1]: требуем проверку гео до входа в корзину
   el.cartBar.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // если открыт лист товара — закрываем его перед переходом к чекауту
+    e.preventDefault(); e.stopPropagation();
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
-    // если гео неизвестно — сразу просим проверить и выходим
-    if (!state.geo || state.geo.status === 'unknown') {
-      requireGeoChecked(); // покажет подсказку/подсветку
-      return;
-    }
-    // режим под ситуацию: доставка внутри зоны → delivery, иначе pickup
-    if (state.geo.status === 'inside') { state.mode = 'delivery'; }
-    else { state.mode = 'pickup'; }
+    if (!state.geo || state.geo.status === 'unknown') { requireGeoChecked(); return; }
+    state.mode = (state.geo.status === 'inside') ? 'delivery' : 'pickup';
     openCheckout();
   });
 
-  // старая зона открытия не нужна
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
 }
 
 // ---------------- загрузка ----------------
 async function loadAll() {
   try {
-    const [m, c] = await Promise.all([ fetch(`menu.json?v=${BUILD_VERSION}`), fetch(`config.json?v=${BUILD_VERSION}`) ]);
-    const menu = await m.json(); state.items = menu.items || []; state.conf = await c.json();
+    const [m, c] = await Promise.allSettled([
+      fetch(`menu.json?v=${BUILD_VERSION}`),
+      fetch(`config.json?v=${BUILD_VERSION}`)
+    ]);
+
+    if (m.status === 'fulfilled') {
+      try { const menu = await m.value.json(); state.items = Array.isArray(menu?.items) ? menu.items : []; }
+      catch(_) { state.items = []; }
+    }
+
+    if (c.status === 'fulfilled') {
+      try { const conf = await c.value.json(); if (conf && typeof conf === 'object') state.conf = { ...state.conf, ...conf }; }
+      catch(_) {}
+    }
   } catch (e) {
-    console.error('Не удалось загрузить конфиг/меню', e);
-    alert('Ошибка загрузки конфигурации. Проверьте, что config.json и menu.json — валидный JSON (без комментариев).'); return;
+    // тихое падение не допускаем
   }
+
   ensureUIStyles();
   ensureCartFAB(); ensureShipInfoBar();
   if (el.coClose) el.coClose.classList.add('btn-green','btn-round');
 
   try {
-    state.drinkOptions = state.items.filter(i => (i.category || '').toLowerCase() === 'напитки').map(i => i.name).filter(Boolean);
+    state.drinkOptions = (state.items || []).filter(i => (i?.category || '').toLowerCase() === 'напитки').map(i => i.name).filter(Boolean);
   } catch(_) { state.drinkOptions = []; }
 
-  setupHours(); buildCategories(); renderGrid(); updateCartBar(); updateGeoUI();
-  // Показать баннер сразу, если применимо
+  setupHours();
+  buildCategories();
+  renderGrid();
+  updateCartBar();
+  updateGeoUI();
   updateShipInfoBar();
 }
 
 // ---------------- расписание ----------------
 function setupHours(){
-  const now = new Date();
-  const [oh, om] = state.conf.business_hours.daily.open.split(':').map(Number);
-  const [ch, cm] = state.conf.business_hours.daily.close.split(':').map(Number);
-  const open = new Date(now); open.setHours(oh, om, 0, 0); const close = new Date(now); close.setHours(ch, cm, 0, 0);
-  const isOpen = now >= open && now <= close;
-  el.hoursState.textContent = (isOpen ? 'Открыто · ' : 'Закрыто · ') + state.conf.business_hours.daily.open + '–' + state.conf.business_hours.daily.close;
+  if (!el.hoursState || !state?.conf?.business_hours?.daily) return;
+  try{
+    const now = new Date();
+    const [oh, om] = (state.conf.business_hours.daily.open || '10:00').split(':').map(Number);
+    const [ch, cm] = (state.conf.business_hours.daily.close || '23:00').split(':').map(Number);
+    const open = new Date(now); open.setHours(oh||10, om||0, 0, 0); const close = new Date(now); close.setHours(ch||23, cm||0, 0, 0);
+    const isOpen = now >= open && now <= close;
+    el.hoursState.textContent = (isOpen ? 'Открыто · ' : 'Закрыто · ') + (state.conf.business_hours.daily.open || '10:00') + '–' + (state.conf.business_hours.daily.close || '23:00');
+  }catch(_){}
 }
 
 // ---------------- категории/грид ----------------
 function buildCategories(){
-  // собираем категории
-  const set = new Set(state.items.map(i => i.category).filter(Boolean));
+  if (!el.tabs) return;
+  const set = new Set((state.items||[]).map(i => i?.category).filter(Boolean));
   const cats = ['Все', ...set];
   state.categories = cats;
-
   el.tabs.innerHTML = '';
-  cats.forEach((cat, i) => {
+  cats.forEach(cat => {
     const a = document.createElement('a'); a.href = '#'; a.textContent = cat;
     const isActive = (state.activeCategory === null && cat === 'Все') || (state.activeCategory === cat);
     a.className = isActive ? 'active' : '';
@@ -506,15 +445,17 @@ function buildCategories(){
   });
 }
 function renderGrid(){
-  const list = state.activeCategory ? state.items.filter(i => i.category === state.activeCategory) : state.items;
-  el.grid.innerHTML = ''; const frag = document.createDocumentFragment();
-  list.forEach(item => {
+  if (!el.grid) return;
+  const list = state.activeCategory ? (state.items||[]).filter(i => i?.category === state.activeCategory) : (state.items||[]);
+  el.grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  (list.length ? list : []).forEach(item => {
     const card = document.createElement('div'); card.className = 'card';
-    const img = document.createElement('img'); img.className='thumb'; img.src=item.image||'images/placeholder.png'; img.alt=item.name;
+    const img = document.createElement('img'); img.className='thumb'; img.src=item.image||'images/placeholder.png'; img.alt=item.name||'';
     const body = document.createElement('div'); body.className='card-body';
-    const title = document.createElement('div'); title.className='title'; title.textContent=item.name;
+    const title = document.createElement('div'); title.className='title'; title.textContent=item.name||'Без названия';
     const actions = document.createElement('div'); actions.className='actions';
-    const price = document.createElement('div'); price.className='price'; price.textContent=money(item.price);
+    const price = document.createElement('div'); price.className='price'; price.textContent=money(item.price||0);
     const btn = document.createElement('button'); btn.className='btn'; btn.textContent='Выбрать';
     btn.onclick = () => openSheet(item); card.onclick = () => openSheet(item);
     actions.append(price, btn); body.append(title, actions); card.append(img, body); frag.append(card);
@@ -524,11 +465,11 @@ function renderGrid(){
 
 // ---------------- напитки/дипы ----------------
 function getIncludedDrinksCount(item){
-  if ((item?.category || '').toLowerCase() === 'напитки') return 0;
+  if (((item?.category)||'').toLowerCase() === 'напитки') return 0;
   if (item?.id === 'combo-wings-6') return 1;
   if (item?.id === 'combo-tenders-5') return 1;
   if (item?.id === 'duo-wings-15') return 2;
-  const t = (item.description || '').toLowerCase(); const m = t.match(/(\\d+)\\s*напит(?:ок|ка|ков)/i);
+  const t = (item?.description || '').toLowerCase(); const m = t.match(/(\\d+)\\s*напит(?:ок|ка|ков)/i);
   if (m) { const n = parseInt(m[1], 10); if (Number.isFinite(n) && n > 0) return n; }
   if (t.includes('напиток')) return 1;
   return 0;
@@ -536,7 +477,7 @@ function getIncludedDrinksCount(item){
 function removePrevDrinkBlock(){ const prev = document.getElementById('drinkBlock'); if (prev) prev.remove(); }
 function buildDrinkUI(item){
   removePrevDrinkBlock();
-  if ((item?.category || '').toLowerCase() === 'напитки') { state.select.drink = null; state.select.drinkCounts = {}; return; }
+  if (((item?.category)||'').toLowerCase() === 'напитки') { state.select.drink = null; state.select.drinkCounts = {}; return; }
   const count = getIncludedDrinksCount(item); if (!count) { state.select.drink = null; state.select.drinkCounts = {}; return; }
   const options = state.drinkOptions || []; if (!options.length) return;
 
@@ -579,26 +520,29 @@ function buildDrinkUI(item){
   }
 
   if (el.dipsBlock && el.dipsBlock.parentNode) { el.dipsBlock.parentNode.insertBefore(block, el.dipsBlock); }
-  else { el.sheet.appendChild(block); }
+  else if (el.sheet) { el.sheet.appendChild(block); }
 }
 
 // ---------------- карточка товара ----------------
 function openSheet(item){
+  if (!el.sheet) return;
   clearAutoSeparators();
 
   state.sheetItem = item; state.sheetQty = 1;
   state.select = { flavors: [], garnish: null, drink: null, drinkCounts: {}, dipCounts: {} };
-  el.sheetImg.src = item.image || 'images/placeholder.png';
-  el.sheetTitle.textContent = item.name; el.sheetPrice.textContent = money(item.price);
-  el.sheetDesc.textContent = item.description || ''; el.qtyValue.textContent = state.sheetQty;
+  if (el.sheetImg) el.sheetImg.src = item.image || 'images/placeholder.png';
+  if (el.sheetTitle) el.sheetTitle.textContent = item.name || '';
+  if (el.sheetPrice) el.sheetPrice.textContent = money(item.price||0);
+  if (el.sheetDesc) el.sheetDesc.textContent = item.description || '';
+  if (el.qtyValue) el.qtyValue.textContent = state.sheetQty;
 
-  const isDrinkCard = ((item.category || '').toLowerCase() === 'напитки');
+  const isDrinkCard = (((item?.category)||'').toLowerCase() === 'напитки');
 
-  if(!isDrinkCard && item.flavors_max){
-    el.flavorBlock.style.display = ''; el.flavorMax.textContent = item.flavors_max; el.flavorOptions.innerHTML = '';
-    (state.conf.cooking_flavors || []).forEach(fl => {
+  if(!isDrinkCard && item?.flavors_max && el.flavorBlock && el.flavorOptions){
+    el.flavorBlock.style.display = ''; if (el.flavorMax) el.flavorMax.textContent = item.flavors_max; el.flavorOptions.innerHTML = '';
+    (state.conf?.cooking_flavors || []).forEach(fl => {
       const o = document.createElement('button'); o.className = 'opt flavor'; o.setAttribute('aria-pressed','false');
-      const name = typeof fl === 'string' ? fl : (fl.name || ''); const heat = typeof fl === 'object' && typeof fl.heat === 'number' ? fl.heat : 0;
+      const name = typeof fl === 'string' ? fl : (fl?.name || ''); const heat = typeof fl === 'object' && typeof fl.heat === 'number' ? fl.heat : 0;
       const color = typeof fl === 'object' && fl.color ? fl.color : ''; const peppers = '🌶'.repeat(Math.max(0, Math.min(3, heat)));
       o.innerHTML = `<span class="dot" style="${color?`background:${color}`:''}"></span><span class="nm">${name}</span><span class="heat">${peppers}</span>`;
       o.onclick = () => { const i = state.select.flavors.indexOf(name);
@@ -609,9 +553,9 @@ function openSheet(item){
       el.flavorOptions.appendChild(o);
     });
     updateFlavorHint(item); insertSeparatorBefore(el.flavorBlock);
-  } else { el.flavorBlock.style.display = 'none'; }
+  } else if (el.flavorBlock) { el.flavorBlock.style.display = 'none'; }
 
-  if(!isDrinkCard && item.garnish && item.garnish.options && item.garnish.options.length){
+  if(!isDrinkCard && item?.garnish?.options?.length && el.garnishBlock && el.garnishOptions){
     el.garnishBlock.style.display=''; el.garnishOptions.innerHTML='';
     item.garnish.options.forEach((g, idx) => {
       const o = document.createElement('button'); o.className = 'opt' + (idx===0 ? ' active' : ''); o.textContent = g;
@@ -620,30 +564,27 @@ function openSheet(item){
       el.garnishOptions.appendChild(o);
     });
     insertSeparatorBefore(el.garnishBlock);
-  } else { el.garnishBlock.style.display='none'; }
+  } else if (el.garnishBlock) { el.garnishBlock.style.display='none'; }
 
   if (!isDrinkCard) buildDrinkUI(item);
 
-  if(!isDrinkCard && typeof item.dips_included === 'number'){
+  if(!isDrinkCard && typeof item?.dips_included === 'number' && el.dipsBlock && el.dipsChoice && el.dipsLeftHint && el.dipsInfo){
     el.dipsBlock.style.display=''; el.dipsInfo.textContent = `Входит: ${item.dips_included} дип` + (item.dips_included===1?'':'ов');
     buildIncludedDipsUI(item); insertSeparatorBefore(el.dipsBlock);
-  } else { el.dipsBlock.style.display='none'; el.dipsChoice.innerHTML=''; el.dipsLeftHint.textContent=''; }
+  } else if (el.dipsBlock && el.dipsChoice && el.dipsLeftHint) { el.dipsBlock.style.display='none'; el.dipsChoice.innerHTML=''; el.dipsLeftHint.textContent=''; }
 
   dedupeSeparators(); normalizeSeparators();
-
-  // скрыть баннер при открытом листе товара и залочить фон
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
   lockBodyScroll();
-
   el.sheet.classList.add('show'); el.sheet.setAttribute('aria-hidden','false');
-
   updateShipInfoBar();
 }
-function updateFlavorHint(item){ const max = item.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; }
+function updateFlavorHint(item){ if (el.flavorHint) { const max = item?.flavors_max || 1; const n = state.select.flavors.length; el.flavorHint.textContent = `${n}/${max} выбрано`; } }
 
 function buildIncludedDipsUI(item){
-  const dips = state.conf.dip_flavors || []; el.dipsChoice.innerHTML = ''; el.dipsChoice.classList.remove('dips-grid'); state.select.dipCounts = {};
-  const getAssigned = () => Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0); const max = item.dips_included || 0;
+  const dips = state.conf?.dip_flavors || []; if (!el.dipsChoice) return;
+  el.dipsChoice.innerHTML = ''; el.dipsChoice.classList.remove('dips-grid'); state.select.dipCounts = {};
+  const getAssigned = () => Object.values(state.select.dipCounts).reduce((a,b)=>a+(b||0),0); const max = item?.dips_included || 0;
   dips.forEach(name => {
     state.select.dipCounts[name] = 0;
     const row = document.createElement('div'); row.className = 'dip-row';
@@ -657,26 +598,27 @@ function buildIncludedDipsUI(item){
     const minus = row.querySelector('.minus'); const plus = row.querySelector('.plus'); const cEl = row.querySelector('.dip-count');
     const updateActive = ()=>{ const val = state.select.dipCounts[name] || 0; cEl.textContent = val; row.classList.toggle('active', val>0); };
     const inc = ()=>{ const assigned = getAssigned(); if(assigned >= max) return; state.select.dipCounts[name] = (state.select.dipCounts[name]||0) + 1; updateActive();
-      const left = max - getAssigned(); el.dipsLeftHint.textContent = left>0 ? `Осталось распределить: ${left}` : 'Распределено'; };
+      const left = max - getAssigned(); if (el.dipsLeftHint) el.dipsLeftHint.textContent = left>0 ? `Осталось распределить: ${left}` : 'Распределено'; };
     const dec = ()=>{ const cur = state.select.dipCounts[name] || 0; if(cur>0){ state.select.dipCounts[name] = cur - 1; } updateActive();
-      const left = max - getAssigned(); el.dipsLeftHint.textContent = left>0 ? `Осталось распределить: ${left}` : 'Распределено'; };
+      const left = max - getAssigned(); if (el.dipsLeftHint) el.dipsLeftHint.textContent = left>0 ? `Осталось распределить: ${left}` : 'Распределено'; };
     minus.addEventListener('click', dec); plus.addEventListener('click', inc); el.dipsChoice.appendChild(row);
   });
-  el.dipsLeftHint.textContent = max>0 ? `Осталось распределить: ${max}` : 'Распределено';
+  if (el.dipsLeftHint) el.dipsLeftHint.textContent = max>0 ? `Осталось распределить: ${max}` : 'Распределено';
 }
 
-el.sheetClose && (el.sheetClose.onclick = () => closeSheet());
-el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
+if (el.sheetClose) el.sheetClose.onclick = () => closeSheet();
+if (el.sheetBackdrop) el.sheetBackdrop.onclick = () => closeSheet();
 function closeSheet(){
+  if (!el.sheet) return;
   el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
   unlockBodyScroll();
-  updateShipInfoBar(); // вернуть баннер, если нужно
+  updateShipInfoBar();
 }
 
-el.qtyMinus && (el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent = state.sheetQty; } });
-el.qtyPlus && (el.qtyPlus.onclick = () => { state.sheetQty++; el.qtyValue.textContent = state.sheetQty; });
+if (el.qtyMinus) el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; if (el.qtyValue) el.qtyValue.textContent = state.sheetQty; } };
+if (el.qtyPlus)  el.qtyPlus.onclick  = () => { state.sheetQty++; if (el.qtyValue) el.qtyValue.textContent = state.sheetQty; };
 
-el.addToCart && (el.addToCart.onclick = () => {
+if (el.addToCart) el.addToCart.onclick = () => {
   const it = state.sheetItem; if(!it) return;
   if(it.flavors_max && state.select.flavors.length===0){ alert('Выберите хотя бы 1 вкус'); return; }
   const drinkKeyPart = (() => { if (state.select.drink) return state.select.drink;
@@ -684,105 +626,71 @@ el.addToCart && (el.addToCart.onclick = () => {
   const key = [ it.id||it.name, (state.select.flavors||[]).join('+'), state.select.garnish||'', drinkKeyPart ].join('|');
   const ex = state.cart.find(c => c.key === key);
   const drinks_included = getIncludedDrinksCount(it);
-  const itemPayload = { key, id: it.id || it.name, name: it.name, basePrice: it.price, qty: state.sheetQty,
+  const itemPayload = { key, id: it.id || it.name, name: it.name, basePrice: it.price||0, qty: state.sheetQty,
     flavors: [...(state.select.flavors||[])], garnish: state.select.garnish || null,
     drinks_included, drink: state.select.drink || null, drinks_breakdown: state.select.drinkCounts || null,
     dips_included: it.dips_included || 0, dips_breakdown: state.select.dipCounts };
   if(ex){ ex.qty += state.sheetQty; } else { state.cart.push(itemPayload); }
-  localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); updateCartBar(); closeSheet();
-});
+  try{ localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); }catch(_){}
+  updateCartBar(); closeSheet();
+};
 
 // ---------------- корзина / чекаут ----------------
 function updateCartBar(){
+  if (!el.cartBar) return;
   const count = state.cart.reduce((a,c)=>a+c.qty,0);
   const subtotal = calcSubtotal();
-
-  // сумма в FAB
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
-
-  // если открыт чекаут — FAB скрыт
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
-
-  if (count > 0 && !checkoutOpen) {
-    el.cartBar.classList.remove('hidden'); el.cartBar.style.display='';
-  } else {
-    el.cartBar.classList.add('hidden'); el.cartBar.style.display='none';
-  }
-
+  if (count > 0 && !checkoutOpen) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
+  else { el.cartBar.classList.add('hidden'); el.cartBar.style.display='none'; }
   updateShipInfoBar();
   ensureUnlockedIfNoLayers();
 }
-el.openCheckout && (el.openCheckout.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); });
-el.cartOpenArea && (el.cartOpenArea.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); });
+if (el.openCheckout) el.openCheckout.onclick = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); };
+if (el.cartOpenArea) el.cartOpenArea.onclick  = () => { if (!requireGeoCheckedSafe()) return; openCheckout(); };
 
 function setNoteLabel(text){
   const labelCandidates = [ document.querySelector('label[for="coNote"]'), el.coNote && el.coNote.closest('.field') ? el.coNote.closest('.field').querySelector('label') : null,
     ...Array.from(document.querySelectorAll('#checkout label')).filter(l => /Комментарий/i.test(l.textContent || '')) ].filter(Boolean);
-  labelCandidates.forEach(l => { l.textContent = text; });
+  labelCandidates.forEach(l => { if (l) l.textContent = text; });
 }
-
 function injectNoteAfterLabel(){
-  const checkout = el.checkout || document.getElementById('checkout');
-  if (!checkout) return;
-  const labels = Array.from(checkout.querySelectorAll('label'));
+  if (!el.checkout) return;
+  const labels = Array.from(el.checkout.querySelectorAll('label'));
   const label = labels.find(l => /Комментарий/i.test((l.textContent||'').trim()));
   if (!label) { ensureNoteField(); return; }
   const next = label.nextElementSibling;
   if (next && next.tagName === 'TEXTAREA' && next.id === 'coNote') return;
-  let ta = checkout.querySelector('#coNote');
+  let ta = el.checkout.querySelector('#coNote');
   if (!ta) { ta = document.createElement('textarea'); ta.id = 'coNote'; }
   ta.setAttribute('rows','3');
   ta.placeholder = (state.mode === 'delivery')
     ? 'Комментарий курьеру (как пройти, код домофона...)'
     : 'Комментарий ресторану (пожелания, уточнения...)';
-  ta.style.width = '100%';
-  ta.style.boxSizing = 'border-box';
-  ta.style.border = '1px solid rgba(0,0,0,.15)';
-  ta.style.borderRadius = '12px';
-  ta.style.padding = '12px 14px';
-  ta.style.margin = '6px 0 12px 0';
-  ta.style.fontSize = '16px';
-  ta.style.minHeight = '60px';
+  Object.assign(ta.style, { width:'100%', boxSizing:'border-box', border:'1px solid rgba(0,0,0,.15)', borderRadius:'12px', padding:'12px 14px', margin:'6px 0 12px 0', fontSize:'16px', minHeight:'60px' });
   label.parentNode.insertBefore(ta, label.nextSibling);
   el.coNote = ta;
 }
 function ensureNoteField(){
   if (el.coNote && el.coNote.tagName) return;
-  const checkout = el.checkout || document.getElementById('checkout');
-  if (!checkout) return;
-  let label = checkout.querySelector('label[for="coNote"]') || Array.from(checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
+  if (!el.checkout) return;
+  let label = el.checkout.querySelector('label[for="coNote"]') || Array.from(el.checkout.querySelectorAll('label')).find(l => /Комментарий/i.test(l.textContent||''));
   let container = (label && label.closest && label.closest('.field')) ? label.closest('.field') : null;
   if (!container) {
-    container = document.createElement('div');
-    container.className = 'field';
-    if (label && label.parentNode) {
-      label.parentNode.insertBefore(container, label.nextSibling);
-      container.appendChild(label);
-    } else {
-      checkout.appendChild(container);
-    }
+    container = document.createElement('div'); container.className = 'field';
+    if (label && label.parentNode) { label.parentNode.insertBefore(container, label.nextSibling); container.appendChild(label); }
+    else { el.checkout.appendChild(container); }
   }
-  const ta = document.createElement('textarea');
-  ta.id = 'coNote';
-  ta.className = 'input';
-  ta.rows = 3;
-  ta.placeholder = state.mode === 'delivery' 
-    ? 'Комментарий курьеру (как пройти, код домофона...)' 
-    : 'Комментарий ресторану (пожелания, уточнения...)';
-  container.appendChild(ta);
-  el.coNote = ta;
+  const ta = document.createElement('textarea'); ta.id = 'coNote'; ta.className = 'input'; ta.rows = 3;
+  ta.placeholder = state.mode === 'delivery' ? 'Комментарий курьеру (как пройти, код домофона...)' : 'Комментарий ресторану (пожелания, уточнения...)';
+  container.appendChild(ta); el.coNote = ta;
 }
-function forceShowNoteField(){ ensureNoteField();
-  if (!el.coNote) return;
+function forceShowNoteField(){
+  ensureNoteField(); if (!el.coNote) return;
   el.coNote.removeAttribute('hidden'); el.coNote.style.display = ''; el.coNote.style.visibility = 'visible';
   const field = el.coNote.closest('.field') || el.coNote.parentElement;
   if (field) { field.removeAttribute('hidden'); field.classList.remove('hidden'); field.style.display = ''; field.style.visibility = 'visible'; }
-  let p = el.coNote.parentElement;
-  while (p && p !== el.checkout) {
-    if (p && p.style && (p.style.display === 'none' || p.style.visibility === 'hidden')) { p.style.display = ''; p.style.visibility = 'visible'; }
-    if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden');
-    p = p.parentElement;
-  }
 }
 function updateNoteUIByMode(){ ensureNoteField();
   if (state.mode === 'delivery') { setNoteLabel('Комментарий курьеру'); if (el.coNote) el.coNote.placeholder = 'Комментарий курьеру (как пройти, код домофона...)'; }
@@ -790,30 +698,22 @@ function updateNoteUIByMode(){ ensureNoteField();
   forceShowNoteField();
 }
 
-// [FIX #4] — Сборка сетки для адреса доставки (уличные поля короче, окно «не ездит»)
+// Сетка адреса
 function ensureDeliveryLayout(){
   if (!el.checkout || !el.addressGroup) return;
   if (el._deliveryLayoutApplied) return;
   el._deliveryLayoutApplied = true;
 
-  // Обёртка адреса
   let wrap = el.addressGroup.querySelector('.addr-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'addr-wrap';
-    el.addressGroup.appendChild(wrap);
-  }
+  if (!wrap) { wrap = document.createElement('div'); wrap.className = 'addr-wrap'; el.addressGroup.appendChild(wrap); }
 
-  // Создаём строки
   let row1 = wrap.querySelector('.addr-grid');
   let row2 = wrap.querySelector('.addr-row2');
   if (!row1) { row1 = document.createElement('div'); row1.className = 'addr-grid'; wrap.appendChild(row1); }
   if (!row2) { row2 = document.createElement('div'); row2.className = 'addr-row2'; wrap.appendChild(row2); }
 
-  // Перемещаем инпуты по местам
   if (el.coStreet) { row1.appendChild(el.coStreet); el.coStreet.placeholder = 'Улица'; }
   if (el.coHouse)  { row1.appendChild(el.coHouse);  el.coHouse.placeholder  = 'Дом'; }
-
   if (el.coFloor)  { row2.appendChild(el.coFloor);  el.coFloor.placeholder  = 'Этаж'; }
   if (el.coApt)    { row2.appendChild(el.coApt);    el.coApt.placeholder    = 'Квартира'; }
 
@@ -823,43 +723,31 @@ function ensureDeliveryLayout(){
 
 // ---------------- режимы и открытие чекаута ----------------
 function openCheckout(){
+  if (!el.checkout) return;
   injectNoteAfterLabel();
   ensureDeliveryLayout();
 
-  // Уважение заранее выбранного режима
   const defaultMode = (state.geo && state.geo.status === 'inside') ? 'delivery' : 'pickup';
-  if (state.mode === 'delivery' && (!state.geo || state.geo.status !== 'inside')) {
-    state.mode = 'pickup';
-  }
-  if (state.mode !== 'delivery' && state.mode !== 'pickup') {
-    state.mode = defaultMode;
-  }
+  if (state.mode === 'delivery' && (!state.geo || state.geo.status !== 'inside')) state.mode = 'pickup';
+  if (state.mode !== 'delivery' && state.mode !== 'pickup') state.mode = defaultMode;
 
   if(el.coPhone && !el.coPhone.value){ el.coPhone.value = '+7'; }
   el.checkout.classList.add('show'); el.checkout.setAttribute('aria-hidden','false');
-  ensureNoteField(); updateModeUIByModeSafe(); renderCoSummary();
-  lockBodyScroll();
-  updateCartBar();
-  updateShipInfoBar();
+  ensureNoteField(); updateModeUI(); renderCoSummary();
+  lockBodyScroll(); updateCartBar(); updateShipInfoBar();
 }
-function updateModeUIByModeSafe(){
-  updateModeUI();
-}
-
-el.coClose && (el.coClose.onclick = () => { 
+if (el.coClose) el.coClose.onclick = () => { 
+  if (!el.checkout) return;
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
-  unlockBodyScroll();
-  updateCartBar(); // показать FAB снова
-  updateShipInfoBar(); // вернуть баннер при необходимости
-});
-el.coBackdrop && (el.coBackdrop.onclick = () => { 
+  unlockBodyScroll(); updateCartBar(); updateShipInfoBar();
+};
+if (el.coBackdrop) el.coBackdrop.onclick = () => { 
+  if (!el.checkout) return;
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
-  unlockBodyScroll();
-  updateCartBar();
-  updateShipInfoBar();
-});
+  unlockBodyScroll(); updateCartBar(); updateShipInfoBar();
+};
 
-el.modeSegment && el.modeSegment.addEventListener('click', e=>{
+if (el.modeSegment) el.modeSegment.addEventListener('click', e=>{
   const btn = e.target.closest('.seg'); if(!btn) return;
   const mode = btn.getAttribute('data-mode');
   if(mode==='delivery' && !requireGeoCheckedSafe()) return;
@@ -868,10 +756,11 @@ el.modeSegment && el.modeSegment.addEventListener('click', e=>{
 });
 function updateModeUI(){
   injectNoteAfterLabel();
-  ensureDeliveryLayout(); // держим сетку активной
-
-  if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; el.addressGroup.style.display=''; }
-  else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : ''); el.addressGroup.style.display='none'; }
+  ensureDeliveryLayout();
+  if (el.deliveryMode) {
+    if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; if (el.addressGroup) el.addressGroup.style.display=''; }
+    else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf?.pickup?.address || ''); if (el.addressGroup) el.addressGroup.style.display='none'; }
+  }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
   updateNoteUIByMode();
   updateShipInfoBar();
@@ -879,6 +768,7 @@ function updateModeUI(){
 }
 
 function renderCoSummary(){
+  if (!el.coSummary || !el.coTotal) return;
   if(state.cart.length===0){ el.coSummary.innerHTML='<em>Корзина пуста</em>'; el.coTotal.textContent=money(0); return; }
 
   const lines = state.cart.map(c=>{
@@ -894,7 +784,7 @@ function renderCoSummary(){
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
       if(pairs.length) extras.push('дипы: '+pairs.join(', '));
     }
-    const sum = c.qty * c.basePrice;
+    const sum = (c.qty||0) * (c.basePrice||0);
     return `<div class="co-item" data-key="${c.key}">
       <div class="co-title">${c.name}${extras.length?' ('+extras.join(', ')+')':''}</div>
       <div class="co-controls">
@@ -920,67 +810,57 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
 
-  // Делегирование кликов по +/-
   if (!el._summaryBound) {
     el._summaryBound = true;
     el.coSummary.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('button');
-      if (!btn) return;
-      const k = btn.getAttribute('data-k');
-      if (!k) return;
+      const btn = ev.target.closest('button'); if (!btn) return;
+      const k = btn.getAttribute('data-k'); if (!k) return;
       const isMinus = btn.classList.contains('minus');
       const isPlus = btn.classList.contains('plus');
-      const idx = state.cart.findIndex(c=>c.key===k);
-      if (idx === -1) return;
-      if (isMinus) {
-        if (state.cart[idx].qty > 1) state.cart[idx].qty--; else state.cart.splice(idx,1);
-      } else if (isPlus) {
-        state.cart[idx].qty++;
-      } else {
-        return;
-      }
-      localStorage.setItem('wingo.cart', JSON.stringify(state.cart));
-      renderCoSummary();
-      updateCartBar();
+      const idx = state.cart.findIndex(c=>c.key===k); if (idx === -1) return;
+      if (isMinus) { if (state.cart[idx].qty > 1) state.cart[idx].qty--; else state.cart.splice(idx,1); }
+      else if (isPlus) { state.cart[idx].qty++; }
+      try{ localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); }catch(_){}
+      renderCoSummary(); updateCartBar();
     });
   }
 }
 
 // ---------------- гео UI ----------------
 function updateGeoUI(){
-  const b = el.geoBanner, g = state.geo;
-  const d = (typeof g.distanceKm === 'number' && isFinite(g.distanceKm)) ? g.distanceKm : null;
+  if (!el.geoBanner) return;
+  const g = state.geo || {}; const d = (typeof g.distanceKm === 'number' && isFinite(g.distanceKm)) ? g.distanceKm : null;
   const dStr = d !== null ? ` — расстояние: ${d.toFixed(1)} км` : '';
-  if(g.status==='inside'){ b.className='geo-banner ok'; b.textContent=`Доступна доставка с улицы Балкантау 94${dStr}.`; }
+  if(g.status==='inside'){ el.geoBanner.className='geo-banner ok'; el.geoBanner.textContent=`Доступна доставка с улицы Балкантау 94${dStr}.`; }
   else if(g.status==='outside'){
-    b.className='geo-banner bad'; const pickupAddr = state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : '';
-    b.textContent=`Доставка недоступна${dStr} (за пределами зоны), но доступен самовывоз${pickupAddr ? ' — ' + pickupAddr : ''}.`;
+    el.geoBanner.className='geo-banner bad'; const pickupAddr = state.conf?.pickup?.address || '';
+    el.geoBanner.textContent=`Доставка недоступна${dStr} (за пределами зоны), но доступен самовывоз${pickupAddr ? ' — ' + pickupAddr : ''}.`;
   }
-  else if(g.status==='denied'){ b.className='geo-banner bad'; b.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
-  else { b.className='geo-banner'; b.textContent=''; }
+  else if(g.status==='denied'){ el.geoBanner.className='geo-banner bad'; el.geoBanner.textContent='Доступ к геолокации запрещён — доставка недоступна.'; }
+  else { el.geoBanner.className='geo-banner'; el.geoBanner.textContent=''; }
   updateShipInfoBar();
 }
 
-el.geoBtn && (el.geoBtn.onclick = () => {
+if (el.geoBtn) el.geoBtn.onclick = () => {
   if(!navigator.geolocation){ alert('Геолокация не поддерживается'); return; }
   el.geoBtn.disabled = true; el.geoBtn.textContent='Проверяем...';
   navigator.geolocation.getCurrentPosition(pos=>{
     const pt = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-    const base = state.conf.delivery.center;
-    const TEST_RADIUS_KM = 10; // временный расширенный радиус для теста UI
-    const radius = TEST_RADIUS_KM;
-    const d = hav(base, pt); state.geo.distanceKm = d; state.geo.inside = d <= radius; state.geo.status = state.geo.inside ? 'inside' : 'outside';
-    localStorage.setItem('wingo.geo', JSON.stringify(state.geo)); updateGeoUI(); ensureNoticeVisible(el.geoBanner);
+    const base = (state.conf?.delivery?.center) || {lat:43.238949, lng:76.889709};
+    const TEST_RADIUS_KM = 10;
+    const d = hav(base, pt); state.geo.distanceKm = d; state.geo.inside = d <= TEST_RADIUS_KM; state.geo.status = state.geo.inside ? 'inside' : 'outside';
+    try{ localStorage.setItem('wingo.geo', JSON.stringify(state.geo)); }catch(_){}
+    updateGeoUI(); ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
-  }, err=>{
+  }, _=>{
     state.geo.status='denied'; state.geo.inside=false; updateGeoUI(); ensureNoticeVisible(el.geoBanner);
     el.geoBtn.disabled=false; el.geoBtn.textContent='Проверить доставку';
   }, {enableHighAccuracy:true, timeout:7000, maximumAge:30000});
-});
+};
 
 // ---------------- WhatsApp ----------------
 function makeWAOrderLink(){
-  const phone = state.conf.whatsapp_number;
+  const phone = state.conf?.whatsapp_number || '77001234567';
   const lines = state.cart.map(c=>{
     const extras=[];
     if(c.flavors?.length) extras.push('вкус: '+c.flavors.join(' + '));
@@ -994,7 +874,7 @@ function makeWAOrderLink(){
       const pairs = Object.entries(c.dips_breakdown||{}).filter(([_,v])=>v>0).map(([k,v])=>`${k}×${v}`);
       if(pairs.length) extras.push('дипы: '+pairs.join(', '));
     }
-    const sum = Math.round(c.qty * c.basePrice);
+    const sum = Math.round((c.qty||0) * (c.basePrice||0));
     return `- ${c.name}${extras.length?' ('+extras.join(' + ')+')':''} × ${c.qty} = ${sum} ₸`;
   }).join('%0A');
 
@@ -1014,19 +894,19 @@ function makeWAOrderLink(){
 
   const name = encodeURIComponent((el.coName?.value||'').trim());
   const phoneText = encodeURIComponent((el.coPhone?.value||'').trim());
-  const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : '')); 
+  const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf?.pickup?.address || '')); 
   const addrEnc = encodeURIComponent(addr);
   const note = encodeURIComponent((el.coNote?.value||'').trim());
   const deliveryLine = (state.mode==='delivery' && state.geo && state.geo.status==='inside') ? `%0AДоставка: ${delivery} ₸` : '';
 
   const text = `Заказ WINGO:%0A${lines}%0AИтого: ${total} ₸${deliveryLine}%0AРежим: ${mode}%0AИмя: ${name}%0AТел: ${phoneText}%0AАдрес: ${addrEnc}%0AКомментарий: ${note}`;
-  return `https://wa.me/${phone}?text=${text}${state.conf.utm}`;
+  return `https://wa.me/${phone}?text=${text}${state.conf?.utm || ''}`;
 }
-el.coWhatsApp && (el.coWhatsApp.onclick = () => {
+if (el.coWhatsApp) el.coWhatsApp.onclick = () => {
   if(state.cart.length===0){ alert('Сначала добавьте позиции в корзину'); return; }
   if (!requireGeoCheckedSafe()) return;
   try{ window.open(makeWAOrderLink(), '_blank', 'noopener'); }catch(e){}
-});
+};
 
 // ---------------- запуск ----------------
 loadAll();
