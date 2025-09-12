@@ -10,6 +10,8 @@
 // - [FIX #1] FAB всегда открывает чекаут (pickup по умолчанию, если гео не ок)
 // - [FIX #2] Нет «отката» со страницы еды при открытии корзины
 // - [FIX #3] Нижний баннер переносит текст на 2+ строки
+// - [FIX #4] Чекаут «Доставка» стабилен: сетка полей как в «Самовывозе», никаких горизонтальных сдвигов
+// - [FIX #5] Плейсхолдеры: «Этаж», «Квартира» — без «необязательно», поля всегда видимы
 // ===============================================================
 
 // ---------------- helpers ----------------
@@ -179,11 +181,23 @@ function ensureUIStyles(){
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    overscroll-behavior: none;
+    overscroll-behavior: contain;
     will-change: transform;
     transform: translateZ(0);
     backface-visibility: hidden;
+    max-width: 100vw;
   }
+
+  /* [FIX #4] Сетка и стабилизация полей адреса в чекауте */
+  #checkout .addr-grid { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: start; }
+  #checkout .addr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #checkout .addr-grid input, #checkout .addr-row2 input, #checkout textarea {
+    height: 44px; padding: 10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:12px; font-size:16px; box-sizing:border-box; width:100%;
+  }
+  #checkout .addr-row2 input { height: 44px; }
+  #checkout .field-inline { display: contents; } /* для сохранения DOM-меток, если есть */
+  #checkout .addr-wrap { display: grid; gap: 10px; }
+  #checkout .addr-section-title { font-size:14px; font-weight:600; opacity:.8; }
 
   /* Кнопка закрытия в листе товара поверх контента */
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
@@ -204,7 +218,7 @@ function lockBodyScroll(){
 function unlockBodyScroll(){
   if (state._lockCount === 0) return;
   state._lockCount--;
-  if (state._lockCount > 0) return;
+  if (state._lockCount > 0) return; // ещё открыты слои
   document.body.classList.remove('body-lock');
   const prev = state._scrollY || 0;
   window.scrollTo(0, prev);
@@ -268,6 +282,7 @@ function normalizeSeparators(){
   const root = document.getElementById('sheet');
   if (!root) return;
   const list = Array.from(root.querySelectorAll('hr.section-sep'));
+  // remove consecutive
   for (let i = list.length - 2; i >= 0; i--) {
     const cur = list[i], nxt = list[i+1];
     if (cur && nxt && cur.nextElementSibling === nxt) {
@@ -275,6 +290,7 @@ function normalizeSeparators(){
       else if (cur.classList.contains('auto')) cur.remove();
     }
   }
+  // remove leading/trailing
   const first = root.querySelector('#sheet .section-sep');
   if (first && first === root.firstElementChild) first.remove();
   const last = root.querySelector('#sheet .section-sep:last-of-type');
@@ -304,6 +320,7 @@ function requireGeoCheckedOnce(){
 
 // ---------------- нижний баннер + нижний шит ----------------
 function ensureShipInfoBar(){
+  // баннер
   if (!document.getElementById('shipInfoBar')) {
     const bar = document.createElement('div'); bar.id = 'shipInfoBar';
     bar.innerHTML = `<button class="i-btn" aria-label="Условия" type="button">i</button><div class="txt"></div>`;
@@ -313,6 +330,7 @@ function ensureShipInfoBar(){
   el.shipInfoText = el.shipInfoBar.querySelector('.txt');
   el.shipInfoBtn = el.shipInfoBar.querySelector('.i-btn');
 
+  // нижний шит
   if (!document.getElementById('shipSheet')) {
     const sheet = document.createElement('div'); sheet.id = 'shipSheet';
     sheet.innerHTML = `
@@ -375,6 +393,7 @@ function ensureCartFAB(){
   el.cartBar.dataset.fabInited = '1';
   el.cartBar.classList.add('fab-cart');
 
+  // содержимое FAB (иконка + сумма)
   el.cartBar.innerHTML = `
     <span class="cart-ic" aria-hidden="true">
       <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21Л5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
@@ -398,6 +417,7 @@ function ensureCartFAB(){
     openCheckout();
   });
 
+  // старая зона открытия не нужна
   if (el.cartOpenArea) el.cartOpenArea.style.display = 'none';
 }
 
@@ -462,7 +482,7 @@ function getIncludedDrinksCount(item){
   if (item?.id === 'combo-wings-6') return 1;
   if (item?.id === 'combo-tenders-5') return 1;
   if (item?.id === 'duo-wings-15') return 2;
-  const t = (item.description || '').toLowerCase(); const m = t.match(/(\d+)\s*напит(?:ок|ка|ков)/i);
+  const t = (item.description || '').toLowerCase(); const m = t.match(/(\\d+)\\s*напит(?:ок|ка|ков)/i);
   if (m) { const n = parseInt(m[1], 10); if (Number.isFinite(n) && n > 0) return n; }
   if (t.includes('напиток')) return 1;
   return 0;
@@ -565,6 +585,7 @@ function openSheet(item){
 
   dedupeSeparators(); normalizeSeparators();
 
+  // скрыть баннер при открытом листе товара и залочить фон
   if (el.shipInfoBar) el.shipInfoBar.classList.remove('show');
   lockBodyScroll();
 
@@ -603,7 +624,7 @@ el.sheetBackdrop && (el.sheetBackdrop.onclick = () => closeSheet());
 function closeSheet(){
   el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
   unlockBodyScroll();
-  updateShipInfoBar();
+  updateShipInfoBar(); // вернуть баннер, если нужно
 }
 
 el.qtyMinus && (el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; el.qtyValue.textContent = state.sheetQty; } });
@@ -630,8 +651,10 @@ function updateCartBar(){
   const count = state.cart.reduce((a,c)=>a+c.qty,0);
   const subtotal = calcSubtotal();
 
+  // сумма в FAB
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
 
+  // если открыт чекаут — FAB скрыт
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
 
   if (count > 0 && !checkoutOpen) {
@@ -711,7 +734,7 @@ function forceShowNoteField(){ ensureNoteField();
   let p = el.coNote.parentElement;
   while (p && p !== el.checkout) {
     if (p && p.style && (p.style.display === 'none' || p.style.visibility === 'hidden')) { p.style.display = ''; p.style.visibility = 'visible'; }
-    if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); // [FIX typo: п -> p]
+    if (p && p.classList && p.classList.contains('hidden')) p.classList.remove('hidden');
     p = p.parentElement;
   }
 }
@@ -721,10 +744,45 @@ function updateNoteUIByMode(){ ensureNoteField();
   forceShowNoteField();
 }
 
+// [FIX #4] — Сборка сетки для адреса доставки (уличные поля короче, окно «не ездит»)
+function ensureDeliveryLayout(){
+  if (!el.checkout || !el.addressGroup) return;
+  if (el._deliveryLayoutApplied) return;
+  el._deliveryLayoutApplied = true;
+
+  // Обёртка адреса
+  let wrap = el.addressGroup.querySelector('.addr-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'addr-wrap';
+    // Переносим текущие поля внутрь обёртки в корректном порядке
+    el.addressGroup.appendChild(wrap);
+  }
+
+  // Создаём строки
+  let row1 = wrap.querySelector('.addr-grid');
+  let row2 = wrap.querySelector('.addr-row2');
+  if (!row1) { row1 = document.createElement('div'); row1.className = 'addr-grid'; wrap.appendChild(row1); }
+  if (!row2) { row2 = document.createElement('div'); row2.className = 'addr-row2'; wrap.appendChild(row2); }
+
+  // Перемещаем инпуты по местам
+  if (el.coStreet) { row1.appendChild(el.coStreet); el.coStreet.placeholder = 'Улица'; }
+  if (el.coHouse)  { row1.appendChild(el.coHouse);  el.coHouse.placeholder  = 'Дом'; }
+
+  if (el.coFloor)  { row2.appendChild(el.coFloor);  el.coFloor.placeholder  = 'Этаж'; }
+  if (el.coApt)    { row2.appendChild(el.coApt);    el.coApt.placeholder    = 'Квартира'; }
+
+  // Без горизонтальных скроллов и «рысканий»
+  el.checkout.style.overflowX = 'hidden';
+  el.checkout.style.maxWidth = '100vw';
+}
+
+// ---------------- режимы и открытие чекаута ----------------
 function openCheckout(){
   injectNoteAfterLabel();
+  ensureDeliveryLayout();
 
-  // [FIX #1] уважаем заранее выбранный режим (из FAB), но валидируем
+  // Уважение заранее выбранного режима
   const defaultMode = (state.geo && state.geo.status === 'inside') ? 'delivery' : 'pickup';
   if (state.mode === 'delivery' && (!state.geo || state.geo.status !== 'inside')) {
     state.mode = 'pickup';
@@ -741,14 +799,14 @@ function openCheckout(){
   updateShipInfoBar();
 }
 function updateModeUIByModeSafe(){
-  // Обёртка, чтобы не дергать сегмент, если его нет
   updateModeUI();
 }
+
 el.coClose && (el.coClose.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
   unlockBodyScroll();
-  updateCartBar();
-  updateShipInfoBar();
+  updateCartBar(); // показать FAB снова
+  updateShipInfoBar(); // вернуть баннер при необходимости
 });
 el.coBackdrop && (el.coBackdrop.onclick = () => { 
   el.checkout.classList.remove('show'); el.checkout.setAttribute('aria-hidden','true'); 
@@ -766,6 +824,8 @@ el.modeSegment && el.modeSegment.addEventListener('click', e=>{
 });
 function updateModeUI(){
   injectNoteAfterLabel();
+  ensureDeliveryLayout(); // держим сетку активной
+
   if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; el.addressGroup.style.display=''; }
   else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf.pickup && state.conf.pickup.address ? state.conf.pickup.address : ''); el.addressGroup.style.display='none'; }
   $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
@@ -816,6 +876,7 @@ function renderCoSummary(){
   el.coSummary.innerHTML = lines + deliveryLine;
   el.coTotal.textContent = money(total);
 
+  // Делегирование кликов по +/-
   if (!el._summaryBound) {
     el._summaryBound = true;
     el.coSummary.addEventListener('click', (ev) => {
@@ -862,7 +923,7 @@ el.geoBtn && (el.geoBtn.onclick = () => {
   navigator.geolocation.getCurrentPosition(pos=>{
     const pt = {lat: pos.coords.latitude, lng: pos.coords.longitude};
     const base = state.conf.delivery.center;
-    const TEST_RADIUS_KM = 10;
+    const TEST_RADIUS_KM = 10; // временный расширенный радиус для теста UI
     const radius = TEST_RADIUS_KM;
     const d = hav(base, pt); state.geo.distanceKm = d; state.geo.inside = d <= radius; state.geo.status = state.geo.inside ? 'inside' : 'outside';
     localStorage.setItem('wingo.geo', JSON.stringify(state.geo)); updateGeoUI(); ensureNoticeVisible(el.geoBanner);
