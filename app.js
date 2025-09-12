@@ -7,11 +7,12 @@
 // - Без зависаний после алертов: безопасная проверка гео + сторож разблокировки
 // - Логика доставки сохранена (от 5 000 ₸ — бесплатно)
 // - FAB без «призрака» и правильные z-index
-// - [FIX #1] FAB всегда открывает чекаут (pickup по умолчанию, если гео не ок)
+// - [FIX #1] FAB открывает чекаут только после проверки доставки (если гео unknown — просим проверить)
 // - [FIX #2] Нет «отката» со страницы еды при открытии корзины
-// - [FIX #3] Нижний баннер переносит текст на 2+ строки
+// - [FIX #3] Нижний баннер переносит текст на 2+ строки и показывается сразу при загрузке
 // - [FIX #4] Чекаут «Доставка» стабилен: сетка полей как в «Самовывозе», никаких горизонтальных сдвигов
 // - [FIX #5] Плейсхолдеры: «Этаж», «Квартира» — без «необязательно», поля всегда видимы
+// - [FIX #6] Вкладка «Все» перед остальными; стартовое состояние — весь каталог
 // ===============================================================
 
 // ---------------- helpers ----------------
@@ -25,9 +26,9 @@ const BUILD_VERSION = (() => {
   try {
     const currentScript = document.currentScript || [...document.getElementsByTagName('script')].pop();
     const u = new URL(currentScript.src || window.location.href, window.location.href);
-    return u.searchParams.get('v') || '21';
+    return u.searchParams.get('v') || '22';
   } catch (e) {
-    return '21';
+    return '22';
   }
 })();
 
@@ -195,9 +196,18 @@ function ensureUIStyles(){
     height: 44px; padding: 10px 12px; border:1px solid rgba(0,0,0,.15); border-radius:12px; font-size:16px; box-sizing:border-box; width:100%;
   }
   #checkout .addr-row2 input { height: 44px; }
-  #checkout .field-inline { display: contents; } /* для сохранения DOM-меток, если есть */
+  #checkout .field-inline { display: contents; }
   #checkout .addr-wrap { display: grid; gap: 10px; }
   #checkout .addr-section-title { font-size:14px; font-weight:600; opacity:.8; }
+
+  /* Подсветка кнопки гео при требовании проверки */
+  .pulse {
+    animation: pulse 1.2s ease-in-out 3;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.6); }
+    100% { box-shadow: 0 0 0 16px rgba(46,125,50,0); }
+  }
 
   /* Кнопка закрытия в листе товара поверх контента */
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
@@ -240,6 +250,9 @@ function ensureUnlockedIfNoLayers(){
     document.documentElement.style.removeProperty('scroll-behavior');
   }
 }
+// [WATCHDOG] — сторож, чтобы страница не «зависала» при потерянном body-lock
+setInterval(ensureUnlockedIfNoLayers, 600);
+document.addEventListener('visibilitychange', ensureUnlockedIfNoLayers);
 
 // ---------------- geo check (safe) ----------------
 function requireGeoChecked(){
@@ -248,6 +261,12 @@ function requireGeoChecked(){
       state.geoWarnedOnce = true;
       alert('Пожалуйста, проверьте доступность доставки — нажмите «Проверить доставку» вверху.');
     }
+    // подсветить кнопку и проскроллить к баннеру
+    if (el.geoBtn) {
+      el.geoBtn.classList.add('pulse');
+      setTimeout(()=> el.geoBtn && el.geoBtn.classList.remove('pulse'), 2000);
+    }
+    ensureNoticeVisible(el.geoBanner);
     return false;
   }
   return true;
@@ -396,24 +415,26 @@ function ensureCartFAB(){
   // содержимое FAB (иконка + сумма)
   el.cartBar.innerHTML = `
     <span class="cart-ic" aria-hidden="true">
-      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21Л5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
+      <svg viewBox="0 0 24 24" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49a1 1 0 00-.88-1.48H6.21Л5.27 2H2v2h2л3.6 7.59-1.35 2.44C5.52 14.37 6.25 15 7.16 15z"/></svg>
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  // [FIX #1] и [FIX #2]: всегда открываем чекаут; без блокирующего requireGeo
+  // [FIX #1]: требуем проверку гео до входа в корзину
   el.cartBar.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     // если открыт лист товара — закрываем его перед переходом к чекауту
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
-    // режим под ситуацию: доставка внутри зоны → delivery, иначе pickup
-    if (state.geo && state.geo.status === 'inside') {
-      state.mode = 'delivery';
-    } else {
-      state.mode = 'pickup';
+    // если гео неизвестно — сразу просим проверить и выходим
+    if (!state.geo || state.geo.status === 'unknown') {
+      requireGeoChecked(); // покажет подсказку/подсветку
+      return;
     }
+    // режим под ситуацию: доставка внутри зоны → delivery, иначе pickup
+    if (state.geo.status === 'inside') { state.mode = 'delivery'; }
+    else { state.mode = 'pickup'; }
     openCheckout();
   });
 
@@ -433,10 +454,14 @@ async function loadAll() {
   ensureUIStyles();
   ensureCartFAB(); ensureShipInfoBar();
   if (el.coClose) el.coClose.classList.add('btn-green','btn-round');
+
   try {
     state.drinkOptions = state.items.filter(i => (i.category || '').toLowerCase() === 'напитки').map(i => i.name).filter(Boolean);
   } catch(_) { state.drinkOptions = []; }
+
   setupHours(); buildCategories(); renderGrid(); updateCartBar(); updateGeoUI();
+  // Показать баннер сразу, если применимо
+  updateShipInfoBar();
 }
 
 // ---------------- расписание ----------------
@@ -451,11 +476,22 @@ function setupHours(){
 
 // ---------------- категории/грид ----------------
 function buildCategories(){
-  const set = new Set(state.items.map(i => i.category)); state.categories = [...set]; el.tabs.innerHTML = '';
-  state.categories.forEach((cat, i) => {
+  // собираем категории
+  const set = new Set(state.items.map(i => i.category).filter(Boolean));
+  const cats = ['Все', ...set];
+  state.categories = cats;
+
+  el.tabs.innerHTML = '';
+  cats.forEach((cat, i) => {
     const a = document.createElement('a'); a.href = '#'; a.textContent = cat;
-    a.className = (state.activeCategory ? (state.activeCategory===cat) : i===0) ? 'active' : '';
-    a.onclick = e => { e.preventDefault(); state.activeCategory = cat; renderGrid(); $$('#tabs a').forEach(n => n.classList.toggle('active', n.textContent === cat)); };
+    const isActive = (state.activeCategory === null && cat === 'Все') || (state.activeCategory === cat);
+    a.className = isActive ? 'active' : '';
+    a.onclick = e => {
+      e.preventDefault();
+      state.activeCategory = (cat === 'Все') ? null : cat;
+      renderGrid();
+      $$('#tabs a').forEach(n => n.classList.toggle('active', n.textContent === (state.activeCategory || 'Все')));
+    };
     el.tabs.appendChild(a);
   });
 }
@@ -755,7 +791,6 @@ function ensureDeliveryLayout(){
   if (!wrap) {
     wrap = document.createElement('div');
     wrap.className = 'addr-wrap';
-    // Переносим текущие поля внутрь обёртки в корректном порядке
     el.addressGroup.appendChild(wrap);
   }
 
@@ -772,7 +807,6 @@ function ensureDeliveryLayout(){
   if (el.coFloor)  { row2.appendChild(el.coFloor);  el.coFloor.placeholder  = 'Этаж'; }
   if (el.coApt)    { row2.appendChild(el.coApt);    el.coApt.placeholder    = 'Квартира'; }
 
-  // Без горизонтальных скроллов и «рысканий»
   el.checkout.style.overflowX = 'hidden';
   el.checkout.style.maxWidth = '100vw';
 }
