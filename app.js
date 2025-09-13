@@ -172,7 +172,11 @@ function ensureUIStyles(){
   @keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(46,125,50,.6);} 100%{ box-shadow:0 0 0 16px rgba(46,125,50,0);} }
 
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
-  `;
+  
+  /* Корзина: белый текст/иконки на зелёном фоне (принудительно) */
+  #cartBar, #cartBar * { color:#fff !important; }
+  #cartBar .cart-ic svg, #cartBar .cartbar__icon svg { fill:#fff !important; }
+`;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
 
