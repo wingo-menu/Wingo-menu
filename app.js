@@ -173,9 +173,12 @@ function ensureUIStyles(){
 
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
   
-  /* Корзина: белый текст/иконки на зелёном фоне (принудительно) */
-  #cartBar, #cartBar * { color:#fff !important; }
-  #cartBar .cart-ic svg, #cartBar .cartbar__icon svg { fill:#fff !important; }
+  /* Индикация режима работы и блокировка доставки */
+  .hours { display:inline-flex; align-items:center; gap:6px; font-weight:600; }
+  .hours::before { content:''; width:8px; height:8px; border-radius:50%; background: currentColor; }
+  .hours.open { color:#2E7D32; }
+  .hours.closed { color:#EF4444; }
+  #modeSegment .seg.disabled { opacity:.5; pointer-events:none; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -759,6 +762,22 @@ if (el.modeSegment) el.modeSegment.addEventListener('click', e=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
+  /* WINGO: enforce delivery availability */
+  const inside = !!(state.geo && state.geo.status==='inside');
+  if (state.mode==='delivery' && !inside) { state.mode = 'pickup'; }
+  const delBtn = document.querySelector('#modeSegment .seg[data-mode="delivery"]');
+  if (delBtn) { delBtn.disabled = !inside; delBtn.classList.toggle('disabled', !inside); }
+  injectNoteAfterLabel();
+  ensureDeliveryLayout();
+  if (el.deliveryMode) {
+    if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; if (el.addressGroup) el.addressGroup.style.display=''; }
+    else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf?.pickup?.address || ''); if (el.addressGroup) el.addressGroup.style.display='none'; }
+  }
+  $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
+  updateNoteUIByMode();
+  updateShipInfoBar();
+  renderCoSummary();
+
   injectNoteAfterLabel();
   ensureDeliveryLayout();
   if (el.deliveryMode) {
