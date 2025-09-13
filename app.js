@@ -176,6 +176,19 @@ function ensureUIStyles(){
   /* Отступ снизу в листе, чтобы FAB корзина не перекрывала содержимое */
   .sheet .sheet__content { padding-bottom: max(96px, env(safe-area-inset-bottom)); }
   #cartBar.fab-cart.hidden { display: none !important; }
+
+  /* Header: center hours above geo button */
+  .app-header .right { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .hours { display:inline-flex; flex-direction:column; align-items:center; gap:2px; font-weight:600; line-height:1.1; text-align:center; }
+  .hours::before { content:''; width:10px; height:10px; border-radius:50%; background: currentColor; display:block; }
+  .hours .status { display:block; }
+  .hours .time { display:block; white-space:nowrap; font-weight:500; opacity:.95; }
+  .hours.open { color:#2E7D32 !important; }
+  .hours.closed { color:#EF4444 !important; }
+
+  /* Cart: force white text/icons (do not change green background) */
+  #cartBar, #cartBar * { color:#fff !important; }
+  #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -365,9 +378,9 @@ function ensureCartFAB(){
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
-  el.cartFabTotal = document.getElementById('cartFabTotal');
-
-  el.cartBar.addEventListener('click', (e) => {
+  \1
+  try { el.cartBar.style.setProperty('color','#fff','important'); el.cartBar.querySelectorAll('svg, svg *').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } catch(_){ }
+el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
     if (!state.geo || state.geo.status === 'unknown') { requireGeoChecked(); return; }
@@ -612,12 +625,8 @@ function buildIncludedDipsUI(item){
 
 if (el.sheetClose) el.sheetClose.onclick = () => closeSheet();
 if (el.sheetBackdrop) el.sheetBackdrop.onclick = () => closeSheet();
-function closeSheet(){
-    try{ removePrevDrinkBlock(); }catch(_){ }
-if (!el.sheet) return;
-  el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
-  unlockBodyScroll();
-  updateShipInfoBar();
+\1
+  try{ updateCartBar(); }catch(_){}
 }
 
 if (el.qtyMinus) el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; if (el.qtyValue) el.qtyValue.textContent = state.sheetQty; } };
