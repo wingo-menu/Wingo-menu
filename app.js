@@ -177,16 +177,16 @@ function ensureUIStyles(){
   .sheet .sheet__content { padding-bottom: max(96px, env(safe-area-inset-bottom)); }
   #cartBar.fab-cart.hidden { display: none !important; }
 
-  /* Header: center hours above geo button */
+  /* Hours centered above geo button */
   .app-header .right { display:flex; flex-direction:column; align-items:center; gap:6px; }
   .hours { display:inline-flex; flex-direction:column; align-items:center; gap:2px; font-weight:600; line-height:1.1; text-align:center; }
   .hours::before { content:''; width:10px; height:10px; border-radius:50%; background: currentColor; display:block; }
   .hours .status { display:block; }
-  .hours .time { display:block; white-space:nowrap; font-weight:500; opacity:.95; }
+  .hours .time { display:block; white-space: nowrap; font-weight:500; opacity:.95; }
   .hours.open { color:#2E7D32 !important; }
   .hours.closed { color:#EF4444 !important; }
 
-  /* Cart: force white text/icons (do not change green background) */
+  /* Cart text/icons stay white on green */
   #cartBar, #cartBar * { color:#fff !important; }
   #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
 `;
@@ -378,6 +378,10 @@ function ensureCartFAB(){
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
+  el.cartFabTotal = document.getElementById('cartFabTotal');
+
+  
+  /* FORCE_WHITE_CART */
   try { el.cartBar.style.setProperty('color','#fff','important'); el.cartBar.querySelectorAll('svg, svg *').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } catch(_){ }
 el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -624,7 +628,14 @@ function buildIncludedDipsUI(item){
 
 if (el.sheetClose) el.sheetClose.onclick = () => closeSheet();
 if (el.sheetBackdrop) el.sheetBackdrop.onclick = () => closeSheet();
-  try{ updateCartBar(); }catch(_){}
+function closeSheet(){
+    try{ removePrevDrinkBlock(); }catch(_){ }
+if (!el.sheet) return;
+  el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
+  unlockBodyScroll();
+  updateShipInfoBar();
+
+  try{ updateCartBar(); }catch(_){ }
 }
 
 if (el.qtyMinus) el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; if (el.qtyValue) el.qtyValue.textContent = state.sheetQty; } };
@@ -644,8 +655,7 @@ if (el.addToCart) el.addToCart.onclick = () => {
     dips_included: it.dips_included || 0, dips_breakdown: state.select.dipCounts };
   if(ex){ ex.qty += state.sheetQty; } else { state.cart.push(itemPayload); }
   try{ localStorage.setItem('wingo.cart', JSON.stringify(state.cart)); }catch(_){}
-  updateCartBar(); closeSheet();
-};
+  closeSheet(); updateCartBar(); };
 
 // ---------------- корзина / чекаут ----------------
 function updateCartBar(){
