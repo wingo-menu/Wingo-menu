@@ -176,6 +176,28 @@ function ensureUIStyles(){
   /* Отступ снизу в листе, чтобы FAB корзина не перекрывала содержимое */
   .sheet .sheet__content { padding-bottom: max(96px, env(safe-area-inset-bottom)); }
   #cartBar.fab-cart.hidden { display: none !important; }
+
+  /* Header right layout and hours styling */
+  .app-header .right { display:flex; align-items:center; gap:12px; }
+  .hours { display:inline-flex; align-items:center; gap:8px; font-weight:600; line-height:1; }
+  .hours::before { content:none !important; }
+  .hours .h-ic { display:inline-flex; width:14px; height:14px; }
+  .hours .h-ic svg { width:14px; height:14px; display:block; }
+  .hours.open { color:#2E7D32 !important; }
+  .hours.closed { color:#EF4444 !important; }
+
+  /* Geo button bigger + pulse */
+  .geo-btn { padding:10px 14px; font-weight:600; border-radius:9999px; }
+  .geo-btn.pulse { animation: geoPulse 1.6s ease-in-out infinite; }
+  @keyframes geoPulse {
+    0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); transform: translateZ(0); }
+    70% { box-shadow: 0 0 0 12px rgba(46,125,50,0); }
+    100% { box-shadow: 0 0 0 0 rgba(46,125,50,0); }
+  }
+
+  /* Cart: force white text/icons on green */
+  #cartBar, #cartBar * { color:#fff !important; }
+  #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -367,7 +389,9 @@ function ensureCartFAB(){
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  el.cartBar.addEventListener('click', (e) => {
+  
+  try { el.cartBar.style.setProperty('color','#fff','important'); el.cartBar.querySelectorAll('svg, svg *').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } catch(_){ }
+el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
     if (!state.geo || state.geo.status === 'unknown') { requireGeoChecked(); return; }
