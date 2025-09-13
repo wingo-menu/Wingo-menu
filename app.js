@@ -378,7 +378,6 @@ function ensureCartFAB(){
     </span>
     <span id="cartFabTotal" class="cart-fab-total">0 ₸</span>
   `;
-  \1
   try { el.cartBar.style.setProperty('color','#fff','important'); el.cartBar.querySelectorAll('svg, svg *').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } catch(_){ }
 el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -625,7 +624,6 @@ function buildIncludedDipsUI(item){
 
 if (el.sheetClose) el.sheetClose.onclick = () => closeSheet();
 if (el.sheetBackdrop) el.sheetBackdrop.onclick = () => closeSheet();
-\1
   try{ updateCartBar(); }catch(_){}
 }
 
