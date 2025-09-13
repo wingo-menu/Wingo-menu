@@ -173,11 +173,15 @@ function ensureUIStyles(){
 
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
   
-  /* Часы: явная подсветка */
+  /* Часы: явная подсветка и крупная точка */
   .hours { display:inline-flex; align-items:center; gap:6px; font-weight:600; }
   .hours::before { content:''; width:10px; height:10px; border-radius:50%; background: currentColor; display:inline-block; }
   .hours.open { color:#2E7D32 !important; }
   .hours.closed { color:#EF4444 !important; }
+
+  /* Корзина: белые текст/иконки всегда */
+  #cartBar, #cartBar * { color:#fff !important; }
+  #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -369,7 +373,10 @@ function ensureCartFAB(){
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  el.cartBar.addEventListener('click', (e) => {
+  
+  /* Принудительно белые иконки/текст корзины */
+  try { el.cartBar.style.setProperty('color','#fff','important'); const svg=el.cartBar.querySelector('svg'); if(svg){ svg.style.setProperty('fill','#fff','important'); svg.style.setProperty('stroke','#fff','important'); svg.querySelectorAll('*').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } } catch(_){ };
+el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
     if (!state.geo || state.geo.status === 'unknown') { requireGeoChecked(); return; }
@@ -898,8 +905,12 @@ function makeWAOrderLink(){
     addr = `ул. ${street}, д. ${house}${floor?`, эт. ${floor}`:''}${apt?`, кв. ${apt}`:''}`;
   }
 
-  const name = encodeURIComponent((el.coName?.value||'').trim());
-  const phoneText = encodeURIComponent((el.coPhone?.value||'').trim());
+  const _nameRaw = (el.coName?.value||'').trim();
+  const _phoneRaw = (el.coPhone?.value||'').trim();
+  if(!_nameRaw){ alert('Пожалуйста, укажите имя.'); throw new Error('name missing'); }
+  if(!/^\+7[\d\s\-\(\)]{9,}$/.test(_phoneRaw)){ alert('Пожалуйста, укажите телефон в формате +7…'); throw new Error('phone missing'); }
+  const name = encodeURIComponent(_nameRaw);
+  const phoneText = encodeURIComponent(_phoneRaw);
   const mode = state.mode==='delivery' ? 'Доставка' : ('Самовывоз — ' + (state.conf?.pickup?.address || '')); 
   const addrEnc = encodeURIComponent(addr);
   const note = encodeURIComponent((el.coNote?.value||'').trim());
