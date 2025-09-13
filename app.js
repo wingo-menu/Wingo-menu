@@ -173,18 +173,11 @@ function ensureUIStyles(){
 
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
   
-  /* Индикация режима работы */
+  /* Часы: явная подсветка */
   .hours { display:inline-flex; align-items:center; gap:6px; font-weight:600; }
-  .hours::before { content:''; width:8px; height:8px; border-radius:50%; background: currentColor; display:inline-block; }
-  .hours.open { color:#2E7D32; }
-  .hours.closed { color:#EF4444; }
-
-  /* Содержимое листа товара: нижний отступ, чтобы FAB не перекрывал */
-  .sheet .sheet__content { padding-bottom: max(96px, env(safe-area-inset-bottom)); }
-
-  /* Корзина: белый цвет текста/иконки на зелёном фоне */
-  #cartBar, #cartBar * { color: #fff !important; }
-  #cartBar .cart-ic svg, #cartBar .cartbar__icon svg { fill:#fff !important; }
+  .hours::before { content:''; width:10px; height:10px; border-radius:50%; background: currentColor; display:inline-block; }
+  .hours.open { color:#2E7D32 !important; }
+  .hours.closed { color:#EF4444 !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -655,8 +648,7 @@ function updateCartBar(){
   const subtotal = calcSubtotal();
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
-  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
-  if (count > 0 && !checkoutOpen && !sheetOpen) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
+  if (count > 0 && !checkoutOpen) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
   else { el.cartBar.classList.add('hidden'); el.cartBar.style.display='none'; }
   updateShipInfoBar();
   ensureUnlockedIfNoLayers();
