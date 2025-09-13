@@ -173,31 +173,16 @@ function ensureUIStyles(){
 
   #sheetClose, #sheet #sheetClose, #sheet .sheet-close, #sheetClose.btn-green { position: absolute; top: 10px; right: 10px; z-index: 1200; }
   
-  /* Отступ снизу в листе, чтобы FAB корзина не перекрывала содержимое */
-  .sheet .sheet__content { padding-bottom: max(96px, env(safe-area-inset-bottom)); }
-  #cartBar.fab-cart.hidden { display: none !important; }
-
-  /* Header right layout and hours styling */
+  /* Hours: two-line layout and color */
   .app-header .right { display:flex; align-items:center; gap:12px; }
-  .hours { display:inline-flex; align-items:center; gap:8px; font-weight:600; line-height:1; }
-  .hours::before { content:none !important; }
+  .hours { display:inline-flex; align-items:center; gap:8px; font-weight:600; line-height:1.05; }
   .hours .h-ic { display:inline-flex; width:14px; height:14px; }
   .hours .h-ic svg { width:14px; height:14px; display:block; }
+  .hours .h-wrap { display:flex; flex-direction:column; }
+  .hours .h-top { line-height:1.05; }
+  .hours .h-time { white-space: nowrap; font-weight:500; opacity:.95; }
   .hours.open { color:#2E7D32 !important; }
   .hours.closed { color:#EF4444 !important; }
-
-  /* Geo button bigger + pulse */
-  .geo-btn { padding:10px 14px; font-weight:600; border-radius:9999px; }
-  .geo-btn.pulse { animation: geoPulse 1.6s ease-in-out infinite; }
-  @keyframes geoPulse {
-    0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.35); transform: translateZ(0); }
-    70% { box-shadow: 0 0 0 12px rgba(46,125,50,0); }
-    100% { box-shadow: 0 0 0 0 rgba(46,125,50,0); }
-  }
-
-  /* Cart: force white text/icons on green */
-  #cartBar, #cartBar * { color:#fff !important; }
-  #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -389,9 +374,7 @@ function ensureCartFAB(){
   `;
   el.cartFabTotal = document.getElementById('cartFabTotal');
 
-  
-  try { el.cartBar.style.setProperty('color','#fff','important'); el.cartBar.querySelectorAll('svg, svg *').forEach(n=>{ n.style.setProperty('fill','#fff','important'); n.style.setProperty('stroke','#fff','important'); }); } catch(_){ }
-el.cartBar.addEventListener('click', (e) => {
+  el.cartBar.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if (el.sheet && el.sheet.classList.contains('show')) { closeSheet(); }
     if (!state.geo || state.geo.status === 'unknown') { requireGeoChecked(); return; }
@@ -637,11 +620,12 @@ function buildIncludedDipsUI(item){
 if (el.sheetClose) el.sheetClose.onclick = () => closeSheet();
 if (el.sheetBackdrop) el.sheetBackdrop.onclick = () => closeSheet();
 function closeSheet(){
-    try{ removePrevDrinkBlock(); }catch(_){ }
-if (!el.sheet) return;
+  if (!el.sheet) return;
   el.sheet.classList.remove('show'); el.sheet.setAttribute('aria-hidden','true');
   unlockBodyScroll();
   updateShipInfoBar();
+
+  try{ updateCartBar(); }catch(_){}
 }
 
 if (el.qtyMinus) el.qtyMinus.onclick = () => { if(state.sheetQty>1){ state.sheetQty--; if (el.qtyValue) el.qtyValue.textContent = state.sheetQty; } };
@@ -671,8 +655,7 @@ function updateCartBar(){
   const subtotal = calcSubtotal();
   if (el.cartFabTotal) el.cartFabTotal.textContent = moneyFab(subtotal);
   const checkoutOpen = el.checkout && el.checkout.classList.contains('show');
-  const sheetOpen = el.sheet && el.sheet.classList.contains('show');
-  if (count > 0 && !checkoutOpen && !sheetOpen) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
+  if (count > 0 && !checkoutOpen) { el.cartBar.classList.remove('hidden'); el.cartBar.style.display=''; }
   else { el.cartBar.classList.add('hidden'); el.cartBar.style.display='none'; }
   updateShipInfoBar();
   ensureUnlockedIfNoLayers();
@@ -785,23 +768,6 @@ if (el.modeSegment) el.modeSegment.addEventListener('click', e=>{
   state.mode = mode; updateModeUI();
 });
 function updateModeUI(){
-  /* ENFORCE_DELIVERY_ONLY_INSIDE */
-  const _inside = !!(state.geo && state.geo.status==='inside');
-  if (state.mode === 'delivery' && !_inside) { state.mode = 'pickup'; }
-  const _delBtn = document.querySelector('#modeSegment .seg[data-mode="delivery"]');
-  if (_delBtn) { _delBtn.disabled = !_inside; _delBtn.classList.toggle('disabled', !_inside); }
-
-  injectNoteAfterLabel();
-  ensureDeliveryLayout();
-  if (el.deliveryMode) {
-    if(state.mode==='delivery'){ el.deliveryMode.textContent = 'Режим: Доставка'; if (el.addressGroup) el.addressGroup.style.display=''; }
-    else { el.deliveryMode.textContent = 'Режим: Самовывоз — ' + (state.conf?.pickup?.address || ''); if (el.addressGroup) el.addressGroup.style.display='none'; }
-  }
-  $$('#modeSegment .seg').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===state.mode));
-  updateNoteUIByMode();
-  updateShipInfoBar();
-  renderCoSummary();
-
   injectNoteAfterLabel();
   ensureDeliveryLayout();
   if (el.deliveryMode) {
