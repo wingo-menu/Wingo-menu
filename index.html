@@ -50,7 +50,7 @@
 
         <div class="opt-block" id="dipsBlock">
           <div class="opt-title">Дип-соусы</div>
-          <div class="opt-hинt" id="dipsInfo"></div>
+          <div class="opt-hint" id="dipsInfo"></div>
           <div class="options options-chips" id="dipsChoice"></div>
           <div class="opt-hint" id="dipsLeftHint"></div>
         </div>
@@ -116,15 +116,15 @@
     <button id="openCheckout" class="cartbar__cta">Оформить</button>
   </div>
 
-  <!-- build v19 -->
+  <!-- build v20 -->
   <script>
-    // Service Worker: оставить включенным.
-    // Для временного отключения добавьте к URL ?nosw=1 (или закомментируйте блок ниже).
-    if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=19').catch(()=>{});
-      });
-    }
+    // Service Worker: без «залипания» на старой версии.
+    // nosw=1 — разово отключает регистрацию (для обхода старого SW).
+    if ('serviceWorker' in navigator && !location.search.includes('nosw=1')) {{
+      window.addEventListener('load', () => {{
+        navigator.serviceWorker.register('sw.js?v=20').catch(()=>{{}});
+      }});
+    }}
   </script>
 </body>
 </html>
