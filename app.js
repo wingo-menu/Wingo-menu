@@ -189,6 +189,16 @@ function ensureUIStyles(){
   /* Cart text/icons stay white on green */
   #cartBar, #cartBar * { color:#fff !important; }
   #cartBar svg, #cartBar svg * { fill:#fff !important; stroke:#fff !important; }
+
+  /* Hours: icon dot left + two-line text; green/red state */
+  .hours { display:inline-flex; align-items:center; gap:8px; text-align:center; }
+  .hours::before { content:none !important; } /* remove old top dot */
+  .hours .h-ic { width:10px; height:10px; border-radius:50%; background: currentColor; display:inline-block; }
+  .hours .h-wrap { display:flex; flex-direction:column; align-items:center; line-height:1.1; }
+  .hours .h-top { font-weight:700; }
+  .hours .h-time { white-space:nowrap; opacity:.95; }
+  .hours.open { color:#2E7D32 !important; }
+  .hours.closed { color:#EF4444 !important; }
 `;
   const st = document.createElement('style'); st.id = 'wingo-ui-style'; st.textContent = css; document.head.appendChild(st);
 }
@@ -441,6 +451,15 @@ function setupHours(){
     const open = new Date(now); open.setHours(oh||10, om||0, 0, 0); const close = new Date(now); close.setHours(ch||23, cm||0, 0, 0);
     const isOpen = now >= open && now <= close;
     el.hoursState.textContent = (isOpen ? 'Открыто · ' : 'Закрыто · ') + (state.conf.business_hours.daily.open || '10:00') + '–' + (state.conf.business_hours.daily.close || '23:00');
+  const _openStr = state.conf.business_hours.daily.open + '–' + state.conf.business_hours.daily.close;
+  const _status = isOpen ? 'Открыто' : 'Закрыто';
+  if (el.hoursState){
+    el.hoursState.classList.toggle('open', isOpen);
+    el.hoursState.classList.toggle('closed', !isOpen);
+    el.hoursState.style.setProperty('color', isOpen ? '#2E7D32' : '#EF4444', 'important');
+    el.hoursState.innerHTML = '<span class="h-ic" aria-hidden="true"></span>'+
+      '<span class="h-wrap"><span class="h-top">'+_status+'</span><span class="h-time">'+_openStr+'</span></span>';
+  }
   }catch(_){}
 }
 
@@ -887,7 +906,7 @@ if (el.geoBtn) el.geoBtn.onclick = () => {
   navigator.geolocation.getCurrentPosition(pos=>{
     const pt = {lat: pos.coords.latitude, lng: pos.coords.longitude};
     const base = (state.conf?.delivery?.center) || {lat:43.238949, lng:76.889709};
-    const TEST_RADIUS_KM = 10;
+    const TEST_RADIUS_KM = 2.5;
     const d = hav(base, pt); state.geo.distanceKm = d; state.geo.inside = d <= TEST_RADIUS_KM; state.geo.status = state.geo.inside ? 'inside' : 'outside';
     try{ localStorage.setItem('wingo.geo', JSON.stringify(state.geo)); }catch(_){}
     updateGeoUI(); ensureNoticeVisible(el.geoBanner);
